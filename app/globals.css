@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f5f0;
+  --foreground: #1c1b19;
+
+  --card: #ffffff;
+  --card-foreground: #1c1b19;
+
+  --muted: #777168;
+  --border: #ded9d0;
+
+  --primary: #1c1b19;
+  --primary-foreground: #ffffff;
+
+  --secondary: #eeeae2;
+  --accent: #9b8251;
+
+  --danger: #b42318;
+  --success: #16803c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+::selection {
+  background: #1c1b19;
+  color: #ffffff;
+}
+
+/* ----------------------------------------------------------
+   Scrollbar
+---------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f7f5f0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c9c2b5;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aaa39a;
+}
+
+/* ----------------------------------------------------------
+   Focus
+---------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid #9b8251;
+  outline-offset: 3px;
+}
+
+/* ----------------------------------------------------------
+   Smooth image transitions
+---------------------------------------------------------- */
+
+.image-hover {
+  transition:
+    transform 0.4s ease,
+    opacity 0.4s ease;
+}
+
+.image-hover:hover {
+  transform: scale(1.04);
+}
+
+/* ----------------------------------------------------------
+   Hide scrollbar utility
+---------------------------------------------------------- */
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ----------------------------------------------------------
+   Mobile tap behaviour
+---------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
