@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import ImageUploader from "@/components/admin/ImageUploader";
+import ImageUploader, { STORAGE_BUCKET } from "@/components/admin/ImageUploader";
 import { createClient } from "@/lib/supabase/client";
 
 type Service = {
@@ -124,7 +124,7 @@ export default function ServicesAdminPage() {
   async function deleteImage(path: string | null) {
     if (!path) return;
 
-    const { error } = await supabase.storage.from("hair-artisan-images").remove([path]);
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([path]);
 
     if (error) {
       console.warn("Could not delete image:", error);
@@ -197,10 +197,15 @@ export default function ServicesAdminPage() {
 
     try {
       if (editingId !== null) {
+        const oldService = services.find((item) => item.id === editingId);
         const { error } = await supabase.from("services").update(payload).eq("id", editingId);
 
         if (error) {
           throw error;
+        }
+
+        if (oldService?.image_path && oldService.image_path !== form.image_path) {
+          await deleteImage(oldService.image_path);
         }
 
         setMessage("Service updated successfully.");

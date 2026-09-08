@@ -3,10 +3,12 @@
 import { useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+export const STORAGE_BUCKET = "hair-artisan-images";
+
 type ImageUploaderProps = {
   value?: string | null;
   onChange: (url: string, path: string) => void;
-  folder: "services" | "gallery";
+  folder: "services" | "gallery" | "site";
   label?: string;
 };
 
@@ -19,17 +21,15 @@ export default function ImageUploader({
   label = "Photo",
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-
   const supabase = useMemo(() => createClient(), []);
 
   async function handleFile(file: File) {
     setError("");
 
     if (!file.type.startsWith("image/")) {
-      setError("Please select an image.");
+      setError("Please select a JPG, PNG or WebP image.");
       return;
     }
 
@@ -42,20 +42,18 @@ export default function ImageUploader({
 
     try {
       const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-
-      const safeName = file.name
+      const baseName = file.name
         .replace(/\.[^/.]+$/, "")
         .replace(/[^a-zA-Z0-9-_]/g, "-")
-        .toLowerCase();
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .toLowerCase() || "image";
 
-      const uniqueName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 8)}-${safeName}.${extension}`;
-
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${baseName}.${extension}`;
       const path = `${folder}/${uniqueName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("site-images")
+        .from(STORAGE_BUCKET)
         .upload(path, file, {
           cacheControl: "3600",
           upsert: false,
@@ -63,20 +61,25 @@ export default function ImageUploader({
         });
 
       if (uploadError) {
-        throw uploadError;
+        throw new Error(
+          uploadError.message.includes("Bucket not found")
+            ? `Storage bucket "${STORAGE_BUCKET}" was not found. Run the Supabase setup SQL supplied with this project.`
+            : uploadError.message
+        );
       }
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("site-images").getPublicUrl(path);
+      const { data } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(path);
 
-      onChange(publicUrl, path);
+      if (!data.publicUrl) {
+        throw new Error("Supabase did not return a public image URL.");
+      }
+
+      onChange(data.publicUrl, path);
     } catch (err) {
-      console.error(err);
-
-      setError(
-        err instanceof Error ? err.message : "Something went wrong while uploading."
-      );
+      console.error("Image upload failed:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong while uploading.");
     } finally {
       setUploading(false);
     }
@@ -84,11 +87,7 @@ export default function ImageUploader({
 
   function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-
-    if (file) {
-      void handleFile(file);
-    }
-
+    if (file) void handleFile(file);
     event.target.value = "";
   }
 
@@ -101,7 +100,6 @@ export default function ImageUploader({
           <div className="relative overflow-hidden rounded-xl border bg-gray-50">
             <img src={value} alt="Selected" className="h-64 w-full object-cover" />
           </div>
-
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -131,7 +129,6 @@ export default function ImageUploader({
       />
 
       <p className="text-xs text-gray-500">JPG, PNG or WebP. Maximum 5MB.</p>
-
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );

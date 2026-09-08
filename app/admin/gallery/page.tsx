@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import ImageUploader from "@/components/admin/ImageUploader";
+import ImageUploader, { STORAGE_BUCKET } from "@/components/admin/ImageUploader";
 import { createClient } from "@/lib/supabase/client";
 
 type GalleryItem = {
@@ -111,7 +111,7 @@ export default function GalleryAdminPage() {
   }
 
   async function deleteImage(path: string) {
-    const { error } = await supabase.storage.from("hair-artisan-images").remove([path]);
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([path]);
 
     if (error) {
       console.warn(error);
@@ -373,7 +373,7 @@ export default function GalleryAdminPage() {
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="mb-2 block text-sm font-medium">Title</label>
+                  <label className="mb-2 block text-sm font-medium">Service / style name</label>
 
                   <input
                     value={form.title}

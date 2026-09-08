@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import RecentWork from "@/components/home/RecentWork";
 import {
   BUSINESS_HOURS,
   BUSINESS_NAME,
@@ -40,6 +41,7 @@ type Service = {
   name: string;
   price: number;
   duration_minutes: number;
+  image_url: string | null;
 };
 
 type BookedTime = {
@@ -291,7 +293,7 @@ function BookingPageInner() {
 
     const { data, error } = await supabase
       .from("services")
-      .select("id, name, price, duration_minutes")
+      .select("id, name, price, duration_minutes, image_url")
       .eq("active", true)
       .order("sort_order");
 
@@ -586,7 +588,7 @@ function BookingPageInner() {
 
             <p className="mx-auto mb-8 max-w-xl leading-7 text-[#66615a]">
               Thanks, {fullName.trim()}. Your appointment at{" "}
-              {BUSINESS_NAME} has been booked successfully.
+              {BUSINESS_NAME} has been booked successfully. Your chair is reserved for the time shown below.
             </p>
 
             <div className="mx-auto mb-8 max-w-md rounded-2xl border border-[#ded9cf] bg-[#faf9f6] p-6 text-left">
@@ -820,7 +822,8 @@ function BookingPageInner() {
                         .toLowerCase();
 
                       const image =
-                        SERVICE_IMAGES[serviceKey] ??
+                        service.image_url ||
+                        SERVICE_IMAGES[serviceKey] ||
                         FALLBACK_SERVICE_IMAGES[
                           index % FALLBACK_SERVICE_IMAGES.length
                         ];
@@ -1585,6 +1588,10 @@ function BookingPageInner() {
             </div>
           </aside>
         </div>
+      </div>
+
+      <div className="mt-16">
+        <RecentWork />
       </div>
     </main>
   );

@@ -19,6 +19,7 @@ type Service = {
   name: string;
   price: number;
   duration_minutes: number;
+  image_url: string | null;
 };
 
 const serviceImages: Record<string, string> = {
@@ -49,6 +50,7 @@ function getServiceImage(serviceName: string) {
 export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [heroImage, setHeroImage] = useState("/images/hero.jpg");
 
   useEffect(() => {
     async function loadServices() {
@@ -56,7 +58,7 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from("services")
-        .select("id, name, price, duration_minutes")
+        .select("id, name, price, duration_minutes, image_url")
         .eq("active", true)
         .order("sort_order");
 
@@ -65,6 +67,14 @@ export default function Home() {
       }
 
       setServices(data || []);
+
+      const { data: heroSetting, error: heroError } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "hero_image_url")
+        .maybeSingle();
+
+      if (!heroError && heroSetting?.value) setHeroImage(heroSetting.value);
       setLoading(false);
     }
 
@@ -89,12 +99,17 @@ export default function Home() {
           </span>
         </Link>
 
-        <Link
-          href="/booking"
-          className="hidden rounded-full border border-[#d8d3c9] bg-white px-5 py-2.5 text-sm font-semibold transition hover:bg-[#eeeae2] sm:block"
-        >
-          Book Now
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="#our-work" className="hidden rounded-full px-4 py-2.5 text-sm font-semibold sm:block">
+            Our Work
+          </Link>
+          <Link
+            href="/booking"
+            className="hidden rounded-full border border-[#d8d3c9] bg-white px-5 py-2.5 text-sm font-semibold transition hover:bg-[#eeeae2] sm:block"
+          >
+            Book Now
+          </Link>
+        </div>
       </header>
 
 
@@ -107,7 +122,7 @@ export default function Home() {
 
           <div className="mx-auto h-48 w-48 overflow-hidden rounded-full border-4 border-white shadow-2xl sm:h-56 sm:w-56">
             <img
-              src="/images/hero.jpg"
+              src={heroImage}
               alt="Hair Artisans"
               className="h-full w-full object-cover"
             />
@@ -256,7 +271,7 @@ export default function Home() {
                   <div className="aspect-[4/3] overflow-hidden bg-[#e8e3da]">
 
                     <img
-                      src={getServiceImage(service.name)}
+                      src={service.image_url || getServiceImage(service.name)}
                       alt={service.name}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       onError={(event) => {

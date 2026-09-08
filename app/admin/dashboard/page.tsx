@@ -302,7 +302,14 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
-    checkAdminAndLoad();
+    void checkAdminAndLoad();
+
+    const intervalId = window.setInterval(() => {
+      void loadBookings();
+    }, 10000);
+
+    return () => window.clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const today = getSouthAfricaToday();
@@ -344,6 +351,14 @@ export default function AdminDashboard() {
       completedRevenue,
     };
   }, [bookings, today]);
+
+  const latestBooking = useMemo(() => {
+    if (bookings.length === 0) return null;
+
+    return [...bookings].sort((a, b) =>
+      String(b.created_at).localeCompare(String(a.created_at))
+    )[0];
+  }, [bookings]);
 
   const filteredBookings = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -457,6 +472,10 @@ export default function AdminDashboard() {
                 <Settings size={16} />
                 Services
               </Link>
+              <Link href="/admin/gallery" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Our Work</Link>
+              <Link href="/admin/website" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Website</Link>
+              <Link href="/admin/calendar" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Calendar</Link>
+              <Link href="/admin/customers" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Customers</Link>
 
               <button
                 onClick={logout}
@@ -507,6 +526,29 @@ export default function AdminDashboard() {
           </p>
         </div>
 
+        {latestBooking && (
+          <section className="mb-8 rounded-3xl border border-green-200 bg-green-50 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-green-700">Latest booking</p>
+                <h3 className="mt-1 text-2xl font-black text-gray-900">
+                  {latestBooking.customer?.full_name || "Customer"}
+                </h3>
+                <p className="mt-1 text-sm text-gray-700">
+                  {latestBooking.customer?.phone || "No phone"}
+                  {latestBooking.customer?.email ? ` · ${latestBooking.customer.email}` : ""}
+                </p>
+              </div>
+              <div className="grid gap-2 text-sm md:text-right">
+                <p><strong>Service:</strong> {latestBooking.service?.name || "Unknown service"}</p>
+                <p><strong>Date:</strong> {formatDate(latestBooking.appointment_date)}</p>
+                <p><strong>Time:</strong> {formatTime(latestBooking.start_time)} – {formatTime(latestBooking.end_time)}</p>
+                <p><strong>Status:</strong> <span className="font-bold capitalize">{latestBooking.status}</span></p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* QUICK ACTIONS */}
         <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Link
@@ -531,6 +573,26 @@ export default function AdminDashboard() {
               size={24}
               className="text-gray-400 transition group-hover:rotate-45 group-hover:text-black"
             />
+          </Link>
+
+          <Link href="/admin/calendar" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div><p className="text-xs font-bold uppercase tracking-wider text-gray-500">Bookings</p><h3 className="mt-1 text-lg font-bold">Calendar</h3><p className="mt-1 text-sm text-gray-500">See today&apos;s reserved chairs</p></div>
+            <CalendarDays size={24} />
+          </Link>
+
+          <Link href="/admin/customers" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div><p className="text-xs font-bold uppercase tracking-wider text-gray-500">Customers</p><h3 className="mt-1 text-lg font-bold">Customer details</h3><p className="mt-1 text-sm text-gray-500">Names, phones and booking history</p></div>
+            <Users size={24} />
+          </Link>
+
+          <Link href="/admin/gallery" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div><p className="text-xs font-bold uppercase tracking-wider text-gray-500">Website</p><h3 className="mt-1 text-lg font-bold">Our Work</h3><p className="mt-1 text-sm text-gray-500">Add or remove hairstyle photos</p></div>
+            <Scissors size={24} />
+          </Link>
+
+          <Link href="/admin/website" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div><p className="text-xs font-bold uppercase tracking-wider text-gray-500">Website</p><h3 className="mt-1 text-lg font-bold">Homepage picture</h3><p className="mt-1 text-sm text-gray-500">Change the main homepage photo</p></div>
+            <Settings size={24} />
           </Link>
 
           <button
