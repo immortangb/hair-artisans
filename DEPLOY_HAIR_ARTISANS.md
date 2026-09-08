@@ -1,4 +1,4 @@
-# Hair Artisans — repair and redeploy
+# Hair Artisan's Barbershop — repair and redeploy
 
 ## 1. Supabase
 1. Open Supabase → SQL Editor.

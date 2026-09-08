@@ -154,7 +154,7 @@ export default function WebsiteAdminPage() {
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-widest text-neutral-500">
-              Hair Artisans
+              Hair Artisan's Barbershop
             </p>
             <h1 className="mt-1 text-3xl font-semibold">Website Pictures</h1>
             <p className="mt-2 text-sm text-neutral-600">

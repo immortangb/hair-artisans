@@ -448,7 +448,7 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2">
                 <Scissors size={22} />
                 <h1 className="text-xl font-black tracking-tight">
-                  HAIR ARTISANS
+                  HAIR ARTISAN'S BARBERSHOP
                 </h1>
               </div>
 

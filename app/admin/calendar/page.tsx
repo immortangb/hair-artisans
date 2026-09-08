@@ -460,7 +460,7 @@ export default function AdminCalendar() {
                 <Scissors size={22} />
 
                 <h1 className="text-xl font-black tracking-tight">
-                  HAIR ARTISANS
+                  HAIR ARTISAN'S BARBERSHOP
                 </h1>
               </div>
 
@@ -618,7 +618,7 @@ export default function AdminCalendar() {
             />
 
             <h3 className="mt-3 text-lg font-black text-red-700">
-              Hair Artisans is closed
+              Hair Artisan's Barbershop is closed
             </h3>
 
             <p className="mt-1 text-sm text-red-600">

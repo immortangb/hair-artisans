@@ -937,7 +937,7 @@ export default function CustomersPage() {
 
         <div className="mt-10 border-t border-zinc-800 pt-6">
           <div className="flex flex-col justify-between gap-4 text-xs text-zinc-600 sm:flex-row sm:items-center">
-            <p>Hair Artisans Admin Panel</p>
+            <p>Hair Artisan's Barbershop Admin Panel</p>
 
             <div className="flex gap-4">
               <Link

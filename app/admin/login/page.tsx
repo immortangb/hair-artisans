@@ -69,7 +69,7 @@ export default function AdminLoginPage() {
 
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-slate-900">
-              Hair Artisans
+              Hair Artisan's Barbershop
             </h1>
 
             <p className="text-slate-500 mt-2">
@@ -143,7 +143,7 @@ export default function AdminLoginPage() {
               href="/"
               className="text-sm text-slate-500 hover:text-slate-900"
             >
-              ← Back to Hair Artisans
+              ← Back to Hair Artisan's Barbershop
             </a>
           </div>
         </div>

@@ -46,7 +46,7 @@ export default function RecentWork() {
             <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">See our work</h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-neutral-600">
-            Browse recent Hair Artisans styles before choosing your appointment.
+            Browse recent Hair Artisan's Barbershop styles before choosing your appointment.
           </p>
         </div>
 
