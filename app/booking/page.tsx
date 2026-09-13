@@ -20,6 +20,7 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import RecentWork from "@/components/home/RecentWork";
+import { getServiceImage } from "@/lib/booking/service-images";
 import {
   BUSINESS_HOURS,
   BUSINESS_NAME,
@@ -304,9 +305,28 @@ function BookingPageInner() {
       return;
     }
 
-    setServices((data ?? []) as Service[]);
+    const loadedServices = (data ?? []) as Service[];
+    setServices(loadedServices);
+
+    // If the customer arrived from a "Book this service" button
+    // on the homepage, keep that service selected and go straight
+    // to the date step instead of asking them to choose it again.
+    if (initialServiceId) {
+      const requestedService = loadedServices.find(
+        (service) => String(service.id) === initialServiceId
+      );
+
+      if (requestedService) {
+        setSelectedServiceId(String(requestedService.id));
+        setStep(2);
+      } else {
+        setSelectedServiceId("");
+        setStep(1);
+      }
+    }
+
     setLoadingServices(false);
-  }, [supabase]);
+  }, [initialServiceId, supabase]);
 
   useEffect(() => {
     void loadServices();
@@ -817,16 +837,12 @@ function BookingPageInner() {
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {services.map((service, index) => {
-                      const serviceKey = service.name
-                        .trim()
-                        .toLowerCase();
+                      const fallbackImage = getServiceImage(
+                        service.name,
+                        service.id
+                      );
 
-                      const image =
-                        service.image_url ||
-                        SERVICE_IMAGES[serviceKey] ||
-                        FALLBACK_SERVICE_IMAGES[
-                          index % FALLBACK_SERVICE_IMAGES.length
-                        ];
+                      const image = service.image_url || fallbackImage;
 
                       const selected =
                         selectedServiceId === String(service.id);
@@ -851,8 +867,15 @@ function BookingPageInner() {
                               sizes="(max-width: 640px) 100vw, 50vw"
                               className="object-cover transition duration-500 group-hover:scale-105"
                               onError={(event) => {
-                                event.currentTarget.src =
-                                  "/images/service-default.jpg";
+                                const target = event.currentTarget;
+                                const fallback = getServiceImage(
+                                  service.name,
+                                  service.id
+                                );
+
+                                if (target.src !== new URL(fallback, window.location.href).href) {
+                                  target.src = fallback;
+                                }
                               }}
                             />
 
@@ -914,6 +937,53 @@ function BookingPageInner() {
                     09:00 to 17:00.
                   </p>
                 </div>
+
+                {selectedService && (
+                  <div className="mb-7 overflow-hidden rounded-2xl border border-[#ded9cf] bg-[#faf9f6]">
+                    <div className="grid sm:grid-cols-[180px_1fr]">
+                      <div className="relative aspect-[4/3] bg-[#eeeae2] sm:aspect-auto sm:min-h-[140px]">
+                        <Image
+                          src={selectedService.image_url || getServiceImage(selectedService.name, selectedService.id)}
+                          alt={selectedService.name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 180px"
+                          className="object-cover"
+                          onError={(event) => {
+                            const target = event.currentTarget;
+                            const fallback = getServiceImage(
+                              selectedService.name,
+                              selectedService.id
+                            );
+
+                            if (target.src !== new URL(fallback, window.location.href).href) {
+                              target.src = fallback;
+                            }
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex flex-col justify-center p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#806a40]">
+                          Selected service
+                        </p>
+                        <h3 className="mt-2 text-xl font-semibold text-[#1c1b19]">
+                          {selectedService.name}
+                        </h3>
+                        <div className="mt-2 flex flex-wrap gap-4 text-sm text-[#77716a]">
+                          <span>R{Number(selectedService.price).toFixed(0)}</span>
+                          <span>{selectedService.duration_minutes} minutes</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setStep(1)}
+                          className="mt-4 w-fit text-sm font-semibold text-[#806a40] hover:underline"
+                        >
+                          Change service
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mb-7 grid grid-cols-2 gap-3 rounded-2xl bg-[#faf9f6] p-4 sm:grid-cols-5">
                   <div>
