@@ -621,7 +621,7 @@ export default function AdminCalendar() {
             />
 
             <h3 className="mt-3 text-lg font-black text-red-700">
-              Hair Artisans is closed
+              Hair-Artisan's Barbershop is closed
             </h3>
 
             <p className="mt-1 text-sm text-red-600">
@@ -2042,7 +2042,7 @@ export default function CustomersPage() {
 
         <div className="mt-10 border-t border-zinc-800 pt-6">
           <div className="flex flex-col justify-between gap-4 text-xs text-zinc-600 sm:flex-row sm:items-center">
-            <p>Hair Artisans Admin Panel</p>
+            <p>Hair-Artisan's Barbershop Admin Panel</p>
 
             <div className="flex gap-4">
               <Link
@@ -3261,7 +3261,7 @@ export default function AdminLoginPage() {
 
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-slate-900">
-              Hair Artisans
+              Hair-Artisan's Barbershop
             </h1>
 
             <p className="text-slate-500 mt-2">
@@ -3335,7 +3335,7 @@ export default function AdminLoginPage() {
               href="/"
               className="text-sm text-slate-500 hover:text-slate-900"
             >
-              ← Back to Hair Artisans
+              ← Back to Hair-Artisan's Barbershop
             </a>
           </div>
         </div>
@@ -3641,7 +3641,7 @@ export default function AdminServicesPage() {
               <Scissors size={22} />
             </div>
             <div>
-              <h1 className="font-bold text-xl text-slate-900">Hair Artisans</h1>
+              <h1 className="font-bold text-xl text-slate-900">Hair-Artisan's Barbershop</h1>
               <p className="text-sm text-slate-500">Service Management</p>
             </div>
           </div>
@@ -4802,7 +4802,7 @@ export default function BookingPage() {
 
                   <p className="mt-2 text-sm leading-6 text-[#77716a]">
                     We&apos;re open Wednesday through Sunday, from
-                    09:00 to 17:00.
+                    10:00 to 17:00.
                   </p>
                 </div>
 
@@ -4811,35 +4811,35 @@ export default function BookingPage() {
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Wednesday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Thursday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Friday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Saturday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Sunday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
                 </div>
 
@@ -5457,7 +5457,7 @@ export default function BookingPage() {
                         <p className="mt-1 text-sm leading-6 text-[#77716a]">
                           Wednesday – Sunday
                           <br />
-                          09:00 – 17:00
+                          10:00 – 17:00
                         </p>
 
                         <p className="mt-2 text-xs text-[#969087]">
@@ -5633,18 +5633,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hair Artisan's | Professional Haircuts",
+  title: "Hair-Artisan's Barbershop | Professional Haircuts",
   description:
-    "Book your appointment with Hair Artisan's. Choose your service, date and time in just a few simple steps.",
+    "Book your appointment with Hair-Artisan's Barbershop. Choose your service, date and time in just a few simple steps.",
   keywords: [
-    "Hair Artisan's",
+    "Hair-Artisan's Barbershop",
     "haircuts",
     "barber",
     "hair salon",
     "haircut booking",
   ],
   openGraph: {
-    title: "Hair Artisan's | Professional Haircuts",
+    title: "Hair-Artisan's Barbershop | Professional Haircuts",
     description:
       "Professional haircuts crafted with precision. Book your appointment online.",
     type: "website",
@@ -5755,7 +5755,7 @@ export default function Home() {
           </span>
 
           <span className="text-xl font-bold tracking-tight">
-            Hair Artisans
+            Hair-Artisan's Barbershop
           </span>
         </Link>
 
@@ -5778,7 +5778,7 @@ export default function Home() {
           <div className="mx-auto h-48 w-48 overflow-hidden rounded-full border-4 border-white shadow-2xl sm:h-56 sm:w-56">
             <img
               src="/images/hero.jpg"
-              alt="Hair Artisans"
+              alt="Hair-Artisan's Barbershop"
               className="h-full w-full object-cover"
             />
           </div>
@@ -5788,7 +5788,7 @@ export default function Home() {
           </p>
 
           <h1 className="mt-3 text-5xl font-bold uppercase tracking-tight sm:text-7xl">
-            Hair Artisans
+            Hair-Artisan's Barbershop
           </h1>
 
           <div className="mt-5 flex items-center justify-center gap-4">
@@ -5999,7 +5999,7 @@ export default function Home() {
 
             <p className="mx-auto mt-4 max-w-xl text-[#777168]">
               Take a look at some of the styles and finishes created at
-              Hair Artisans.
+              Hair-Artisan's Barbershop.
             </p>
 
           </div>
@@ -6015,7 +6015,7 @@ export default function Home() {
 
                 <img
                   src="/images/classic-haircut.jpg"
-                  alt="Classic haircut at Hair Artisans"
+                  alt="Classic haircut at Hair-Artisan's Barbershop"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   onError={(event) => {
                     event.currentTarget.src =
@@ -6046,7 +6046,7 @@ export default function Home() {
 
                 <img
                   src="/images/haircut-beard.jpg"
-                  alt="Haircut and beard at Hair Artisans"
+                  alt="Haircut and beard at Hair-Artisan's Barbershop"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   onError={(event) => {
                     event.currentTarget.src =
@@ -6077,7 +6077,7 @@ export default function Home() {
 
                 <img
                   src="/images/kids-haircut.jpg"
-                  alt="Kids haircut at Hair Artisans"
+                  alt="Kids haircut at Hair-Artisan's Barbershop"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   onError={(event) => {
                     event.currentTarget.src =
@@ -6141,11 +6141,11 @@ export default function Home() {
             {[
               ["Monday", "Closed"],
               ["Tuesday", "Closed"],
-              ["Wednesday", "09:00 – 17:00"],
-              ["Thursday", "09:00 – 17:00"],
-              ["Friday", "09:00 – 17:00"],
-              ["Saturday", "09:00 – 17:00"],
-              ["Sunday", "09:00 – 17:00"],
+              ["Wednesday", "10:00 – 17:00"],
+              ["Thursday", "10:00 – 17:00"],
+              ["Friday", "10:00 – 17:00"],
+              ["Saturday", "10:00 – 17:00"],
+              ["Sunday", "10:00 – 17:00"],
             ].map(([day, hours]) => (
 
               <div
@@ -6216,13 +6216,13 @@ export default function Home() {
           <Scissors className="h-4 w-4" />
 
           <span className="font-semibold text-[#1c1b19]">
-            Hair Artisans
+            Hair-Artisan's Barbershop
           </span>
 
         </div>
 
         <p className="mt-3">
-          © {new Date().getFullYear()} Hair Artisans. All rights reserved.
+          © {new Date().getFullYear()} Hair-Artisan's Barbershop. All rights reserved.
         </p>
 
       </footer>
@@ -6240,12 +6240,12 @@ export default function Home() {
 // Central source of truth for business hours and booking rules.
 //
 // Monday + Tuesday = CLOSED
-// Wednesday - Sunday = 09:00 - 17:00
+// Wednesday - Sunday = 10:00 - 17:00
 // Booking slots = 30 minutes
 //
 // ============================================================
 
-export const BUSINESS_NAME = "Hair Artisan's";
+export const BUSINESS_NAME = "Hair-Artisan's Barbershop";
 
 export const BUSINESS_TIMEZONE = "Africa/Johannesburg";
 
@@ -6261,7 +6261,7 @@ export type BusinessHours = {
 export const BUSINESS_HOURS: Record<number, BusinessHours | null> = {
   0: {
     // Sunday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
@@ -6271,25 +6271,25 @@ export const BUSINESS_HOURS: Record<number, BusinessHours | null> = {
 
   3: {
     // Wednesday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
   4: {
     // Thursday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
   5: {
     // Friday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
   6: {
     // Saturday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 };

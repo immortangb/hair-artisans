@@ -7,7 +7,7 @@
 # 2. Copies them into /public/images/gallery
 # 3. Renames them gallery-01.jpeg, gallery-02.jpeg, etc.
 #
-# Run from the Hair Artisan's project root:
+# Run from the Hair-Artisan's Barbershop project root:
 #
 # powershell -ExecutionPolicy Bypass -File .\scripts\prepare-images.ps1
 #
@@ -22,7 +22,7 @@ $destinationFolder = Join-Path $projectRoot "public\images\gallery"
 
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Cyan
-Write-Host " Hair Artisan's Image Preparation" -ForegroundColor Cyan
+Write-Host " Hair-Artisan's Barbershop Image Preparation" -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host ""
 

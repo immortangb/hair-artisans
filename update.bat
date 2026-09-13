@@ -1,5 +1,5 @@
 @echo off
-title Hair Artisans - Save and Push
+title Hair-Artisan's Barbershop - Save and Push
 
 echo.
 echo ==========================================
@@ -12,7 +12,7 @@ git add .
 
 echo.
 echo [2/3] Creating commit...
-git commit -m "Update Hair Artisans website"
+git commit -m "Update Hair-Artisan's Barbershop website"
 
 echo.
 echo [3/3] Pushing to GitHub...

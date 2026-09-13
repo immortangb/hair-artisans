@@ -5,12 +5,12 @@
 // Central source of truth for business hours and booking rules.
 //
 // Monday + Tuesday = CLOSED
-// Wednesday - Sunday = 09:00 - 17:00
+// Wednesday - Sunday = 10:00 - 17:00
 // Booking slots = 30 minutes
 //
 // ============================================================
 
-export const BUSINESS_NAME = "Hair Artisan's";
+export const BUSINESS_NAME = "Hair-Artisan's Barbershop";
 
 export const BUSINESS_TIMEZONE = "Africa/Johannesburg";
 
@@ -26,7 +26,7 @@ export type BusinessHours = {
 export const BUSINESS_HOURS: Record<number, BusinessHours | null> = {
   0: {
     // Sunday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
@@ -36,25 +36,25 @@ export const BUSINESS_HOURS: Record<number, BusinessHours | null> = {
 
   3: {
     // Wednesday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
   4: {
     // Thursday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
   5: {
     // Friday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 
   6: {
     // Saturday
-    open: "09:00",
+    open: "10:00",
     close: "17:00",
   },
 };

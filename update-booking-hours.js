@@ -1,75 +1,62 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
-const projectRoot = __dirname;
-const bookingFile = path.join(
-  projectRoot,
-  "app",
-  "booking",
-  "page.tsx"
-);
-
-if (!fs.existsSync(bookingFile)) {
-  console.error("");
-  console.error("ERROR: Could not find:");
-  console.error("app/booking/page.tsx");
-  console.error("");
-  console.error("Make sure this script is inside your hair-artisans folder.");
-  process.exit(1);
-}
-
-let source = fs.readFileSync(bookingFile, "utf8");
-
-console.log("");
-console.log("Updating Hair Artisan's Barbershop booking hours...");
-console.log("");
-
-/*
-|--------------------------------------------------------------------------
-| Replace common 09:00 opening-hour references
-|--------------------------------------------------------------------------
-*/
-
-const replacements = [
-  {
-    oldText: "09:00",
-    newText: "10:00",
-  },
+const root = __dirname;
+const files = [
+  'app/page.tsx',
+  'app/layout.tsx',
+  'app/booking/page.tsx',
+  'app/admin/dashboard/page.tsx',
+  'app/admin/login/page.tsx',
+  'app/admin/customers/page.tsx',
+  'app/admin/services/page.tsx',
+  'app/admin/gallery/page.tsx',
+  'app/admin/website/page.tsx',
+  'app/admin/calendar/page.tsx',
+  'components/home/RecentWork.tsx',
+  'lib/booking/config.ts',
 ];
 
-let changed = false;
+const OLD_NAMES = ["Hair Artisan's", 'Hair Artisans', 'Hair Artisan'];
+const NEW_NAME = "Hair-Artisan's Barbershop";
 
-for (const replacement of replacements) {
-  if (source.includes(replacement.oldText)) {
-    source = source.replace(
-      new RegExp(
-        replacement.oldText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-        "g"
-      ),
-      replacement.newText
-    );
+let changedFiles = 0;
 
-    changed = true;
+for (const relative of files) {
+  const file = path.join(root, relative);
+  if (!fs.existsSync(file)) {
+    console.error(`Missing expected file: ${relative}`);
+    process.exit(1);
+  }
+
+  let source = fs.readFileSync(file, 'utf8');
+  const original = source;
+
+  for (const oldName of OLD_NAMES) {
+    source = source.split(oldName).join(NEW_NAME);
+  }
+
+  if (relative === 'lib/booking/config.ts') {
+    source = source
+      .replace(/Wednesday - Sunday = 09:00 - 17:00/g, 'Wednesday - Sunday = 10:00 - 17:00')
+      .replace(/open: "09:00"/g, 'open: "10:00"');
+  }
+
+  source = source
+    .replace(/09:00 – 17:00/g, '10:00 – 17:00')
+    .replace(/09:00–17:00/g, '10:00–17:00')
+    .replace(/09:00 to 17:00/g, '10:00 to 17:00');
+
+  if (source !== original) {
+    fs.writeFileSync(file, source, 'utf8');
+    changedFiles += 1;
+    console.log(`Updated ${relative}`);
   }
 }
 
-if (!changed) {
-  console.log(
-    "WARNING: No 09:00 value was found in app/booking/page.tsx."
-  );
-  console.log(
-    "Your booking page may already use a different time-generation system."
-  );
-  console.log("");
-  process.exit(0);
-}
-
-fs.writeFileSync(bookingFile, source, "utf8");
-
-console.log("SUCCESS!");
-console.log("");
-console.log("New website booking start time: 10:00");
-console.log("Closing time: 17:00");
-console.log("");
-console.log("Existing 09:00 and 09:30 database bookings were NOT changed.");
-console.log("");
+console.log('');
+console.log('Hair-Artisan\'s Barbershop repair completed.');
+console.log('New customer booking window: 10:00–17:00.');
+console.log('Monday and Tuesday remain closed.');
+console.log('Existing database bookings, including 09:00 and 09:30 bookings, were not modified.');
+console.log(`Files changed: ${changedFiles}`);

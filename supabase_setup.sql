@@ -128,7 +128,7 @@ create index if not exists gallery_items_published_idx on public.gallery_items(i
 -- These can be renamed, hidden or deleted from Admin → Our Work.
 insert into public.gallery_items (title, description, image_url, image_path, is_published, sort_order)
 select
-  'Hair Artisans Work ' || lpad(n::text, 2, '0'),
+  'Hair-Artisan''s Barbershop Work ' || lpad(n::text, 2, '0'),
   null,
   '/images/gallery/gallery-' || lpad(n::text, 2, '0') || '.jpeg',
   'local/gallery-' || lpad(n::text, 2, '0') || '.jpeg',
@@ -250,7 +250,7 @@ begin
     raise exception 'The shop is closed on Monday and Tuesday.' using errcode = '22023';
   end if;
 
-  if p_start_time < time '09:00' or p_start_time >= time '17:00' then
+  if p_start_time < time '10:00' or p_start_time >= time '17:00' then
     raise exception 'The selected time is outside business hours.' using errcode = '22023';
   end if;
 
@@ -472,7 +472,7 @@ grant usage, select on all sequences in schema public to authenticated;
 -- ADMIN USER
 -- ============================================================
 -- Run this separately after replacing the email with the email of your
--- Supabase Auth account used for the Hair Artisans admin login:
+-- Supabase Auth account used for the Hair-Artisan's Barbershop admin login:
 --
 -- insert into public.admin_users(user_id)
 -- select id from auth.users where email = 'YOUR-ADMIN-EMAIL'

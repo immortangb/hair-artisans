@@ -934,7 +934,7 @@ function BookingPageInner() {
 
                   <p className="mt-2 text-sm leading-6 text-[#77716a]">
                     We&apos;re open Wednesday through Sunday, from
-                    09:00 to 17:00.
+                    10:00 to 17:00.
                   </p>
                 </div>
 
@@ -990,35 +990,35 @@ function BookingPageInner() {
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Wednesday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Thursday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Friday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Saturday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[#918a81]">
                       Sunday
                     </p>
-                    <p className="mt-1 text-sm font-medium">09:00–17:00</p>
+                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
                   </div>
                 </div>
 
@@ -1636,7 +1636,7 @@ function BookingPageInner() {
                         <p className="mt-1 text-sm leading-6 text-[#77716a]">
                           Wednesday – Sunday
                           <br />
-                          09:00 – 17:00
+                          10:00 – 17:00
                         </p>
 
                         <p className="mt-2 text-xs text-[#969087]">
