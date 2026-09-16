@@ -32,7 +32,6 @@ import {
   getDayOfWeek,
   getTodaySouthAfrica,
   isBookableDate,
-  isTimeStillAvailable,
   minutesToTime,
   timeToMinutes,
 } from "@/lib/booking/config";
@@ -56,6 +55,15 @@ type BookingResult = {
   success: boolean;
   bookingId?: number;
   message?: string;
+};
+
+type ScheduleRow = {
+  day_of_week: number;
+  is_closed: boolean;
+  open_time: string | null;
+  close_time: string | null;
+  break_start: string | null;
+  break_end: string | null;
 };
 
 const SERVICE_IMAGES: Record<string, string> = {
@@ -157,14 +165,15 @@ function getCurrentMinutesSouthAfrica(): number {
   return hour * 60 + minute;
 }
 
-function getDateList(): string[] {
+function getDateList(schedule: Record<number, ScheduleRow>): string[] {
   const today = getTodaySouthAfrica();
   const dates: string[] = [];
 
   for (let offset = 0; offset < BOOKING_WINDOW_DAYS; offset += 1) {
     const date = getDateOffset(today, offset);
 
-    if (isBookableDate(date)) {
+    const saved = schedule[getDayOfWeek(date)];
+    if (saved ? !saved.is_closed : isBookableDate(date)) {
       dates.push(date);
     }
   }
@@ -175,13 +184,17 @@ function getDateList(): string[] {
 function getAvailableTimes(
   dateString: string,
   durationMinutes: number,
-  bookedTimes: BookedTime[]
+  bookedTimes: BookedTime[],
+  schedule: Record<number, ScheduleRow>,
 ): string[] {
   if (!dateString || durationMinutes <= 0) {
     return [];
   }
 
-  const hours = getBusinessHours(dateString);
+  const saved = schedule[getDayOfWeek(dateString)];
+  const hours = saved && !saved.is_closed && saved.open_time && saved.close_time
+    ? { open: saved.open_time, close: saved.close_time }
+    : getBusinessHours(dateString);
 
   if (!hours || !hours.open || !hours.close) {
     return [];
@@ -207,14 +220,10 @@ function getAvailableTimes(
 
     const startTime = minutesToTime(start);
 
-    if (
-      isTimeStillAvailable(
-        dateString,
-        startTime,
-        durationMinutes,
-        bookedTimes
-      )
-    ) {
+    const overlapsBreak = Boolean(saved?.break_start && saved?.break_end && start < timeToMinutes(saved.break_end) && start + durationMinutes > timeToMinutes(saved.break_start));
+    const end = start + durationMinutes;
+    const overlapsBooking = bookedTimes.some((booking) => start < timeToMinutes(booking.end_time) && end > timeToMinutes(booking.start_time));
+    if (!overlapsBreak && !overlapsBooking) {
       times.push(startTime);
     }
   }
@@ -264,6 +273,8 @@ function BookingPageInner() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentOption, setPaymentOption] = useState<"deposit" | "full">("deposit");
+  const [schedule, setSchedule] = useState<Record<number, ScheduleRow>>({});
 
   const [submitting, setSubmitting] = useState(false);
   const [bookingResult, setBookingResult] =
@@ -273,7 +284,7 @@ function BookingPageInner() {
 
   const [visibleDateStart, setVisibleDateStart] = useState(0);
 
-  const dates = useMemo(() => getDateList(), []);
+  const dates = useMemo(() => getDateList(schedule), [schedule]);
 
   const selectedService = useMemo(
     () =>
@@ -332,6 +343,13 @@ function BookingPageInner() {
     void loadServices();
   }, [loadServices]);
 
+  useEffect(() => {
+    void supabase.from("business_hours").select("day_of_week,is_closed,open_time,close_time,break_start,break_end").then(({ data }) => {
+      if (!data) return;
+      setSchedule(Object.fromEntries((data as ScheduleRow[]).map((row) => [row.day_of_week, row])));
+    });
+  }, [supabase]);
+
   const loadAvailability = useCallback(
     async (dateString: string) => {
       if (!dateString || !selectedService) {
@@ -366,7 +384,8 @@ function BookingPageInner() {
       const times = getAvailableTimes(
         dateString,
         selectedService.duration_minutes,
-        bookings
+        bookings,
+        schedule
       );
 
       setAvailableTimes(times);
@@ -376,7 +395,7 @@ function BookingPageInner() {
         setSelectedTime("");
       }
     },
-    [selectedService, selectedTime, supabase]
+    [schedule, selectedService, selectedTime, supabase]
   );
 
   useEffect(() => {
@@ -409,7 +428,7 @@ function BookingPageInner() {
   };
 
   const handleDateSelect = (date: string) => {
-    if (!isBookableDate(date)) {
+    if (schedule[getDayOfWeek(date)] ? schedule[getDayOfWeek(date)].is_closed : !isBookableDate(date)) {
       return;
     }
 
@@ -445,11 +464,8 @@ function BookingPageInner() {
       return false;
     }
 
-    if (
-      trimmedEmail.length > 0 &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
-    ) {
-      setErrorMessage("Please enter a valid email address.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setErrorMessage("Please enter a valid email address for your confirmation.");
       return false;
     }
 
@@ -490,56 +506,17 @@ function BookingPageInner() {
     setErrorMessage("");
 
     try {
-      const { data, error } = await supabase.rpc(
-        "create_hair_artisans_booking",
-        {
-          p_full_name: fullName.trim(),
-          p_phone: phone.trim(),
-          p_email: email.trim() || null,
-          p_notes: notes.trim() || null,
-          p_service_id: selectedService.id,
-          p_appointment_date: selectedDate,
-          p_start_time: selectedTime,
-        }
-      );
-
-      if (error) {
-        console.error("Booking error:", error);
-
-        setErrorMessage(
-          error.message?.toLowerCase().includes("available")
-            ? "That time is no longer available. Please choose another time."
-            : "We could not complete your booking. Please try again."
-        );
-
-        await loadAvailability(selectedDate);
-        setStep(3);
-        return;
-      }
-
-      const rawId =
-        typeof data === "object" &&
-        data !== null &&
-        "id" in data
-          ? data.id
-          : data;
-
-      const bookingId = Number(rawId);
-
-      if (!Number.isFinite(bookingId) || bookingId <= 0) {
-        console.error("Unexpected booking response:", data);
-
-        setErrorMessage(
-          "Your booking may have been created, but we could not retrieve the booking number. Please contact the shop."
-        );
-
-        return;
-      }
-
-      setBookingResult({
-        success: true,
-        bookingId,
+      const response = await fetch("/api/paystack/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, phone, email, notes, serviceId: selectedService.id, appointmentDate: selectedDate, startTime: selectedTime, paymentOption }),
       });
+      const result = await response.json();
+      if (!response.ok || !result.authorizationUrl) {
+        throw new Error(result.error || "Could not start payment.");
+      }
+      window.location.assign(result.authorizationUrl);
+      return;
     } catch (error) {
       console.error("Unexpected booking error:", error);
 
@@ -1073,7 +1050,7 @@ function BookingPageInner() {
                         key={date}
                         type="button"
                         onClick={() => handleDateSelect(date)}
-                        disabled={!isBookableDate(date)}
+                        disabled={schedule[day] ? schedule[day].is_closed : !isBookableDate(date)}
                         className={[
                           "relative rounded-2xl border p-4 text-left transition",
                           selected
@@ -1319,9 +1296,6 @@ function BookingPageInner() {
                       className="mb-2 block text-sm font-medium"
                     >
                       Email address
-                      <span className="ml-2 font-normal text-[#969087]">
-                        Optional
-                      </span>
                     </label>
 
                     <div className="relative">
@@ -1517,15 +1491,14 @@ function BookingPageInner() {
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#806a40]" />
 
                     <div>
-                      <p className="font-semibold">
-                        No payment required
-                      </p>
-
-                      <p className="mt-1 text-sm leading-6 text-[#70695f]">
-                        Your appointment is confirmed directly with the
-                        barbershop. There is no online payment or
-                        deposit required.
-                      </p>
+                      <p className="font-semibold">Secure your appointment with Paystack</p>
+                      <p className="mt-1 text-sm leading-6 text-[#70695f]">Choose a 30% deposit or pay in full. Your booking is confirmed after successful payment.</p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {(["deposit", "full"] as const).map((option) => {
+                          const amount = option === "deposit" ? selectedService!.price * 0.3 : selectedService!.price;
+                          return <button key={option} type="button" onClick={() => setPaymentOption(option)} className={`rounded-xl border p-3 text-left text-sm ${paymentOption === option ? "border-[#806a40] bg-white" : "border-[#dcd5c8]"}`}><span className="block font-semibold">{option === "deposit" ? "Pay 30% deposit" : "Pay in full"}</span><span>R{amount.toFixed(2)}</span></button>;
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1543,7 +1516,7 @@ function BookingPageInner() {
                     </>
                   ) : (
                     <>
-                      Confirm appointment
+                      Continue to Paystack
                       <Check className="h-5 w-5" />
                     </>
                   )}
@@ -1666,3 +1639,4 @@ function BookingPageInner() {
     </main>
   );
 }
+

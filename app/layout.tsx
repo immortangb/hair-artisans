@@ -13,18 +13,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hair-Artisan's Barbershop | Professional Haircuts",
+  title: "Hair Artisans Barbershop | Professional Haircuts",
   description:
-    "Book your appointment with Hair-Artisan's Barbershop. Choose your service, date and time in just a few simple steps.",
+    "Book your appointment with Hair Artisans Barbershop. Choose your service, date and time in just a few simple steps.",
   keywords: [
-    "Hair-Artisan's Barbershop",
+    "Hair Artisans Barbershop",
     "haircuts",
     "barber",
     "hair salon",
     "haircut booking",
   ],
   openGraph: {
-    title: "Hair-Artisan's Barbershop | Professional Haircuts",
+    title: "Hair Artisans Barbershop | Professional Haircuts",
     description:
       "Professional haircuts crafted with precision. Book your appointment online.",
     type: "website",
@@ -45,3 +45,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+

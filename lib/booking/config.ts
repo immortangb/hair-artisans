@@ -10,7 +10,7 @@
 //
 // ============================================================
 
-export const BUSINESS_NAME = "Hair-Artisan's Barbershop";
+export const BUSINESS_NAME = "Hair Artisans Barbershop";
 
 export const BUSINESS_TIMEZONE = "Africa/Johannesburg";
 
@@ -58,6 +58,8 @@ export const BUSINESS_HOURS: Record<number, BusinessHours | null> = {
     close: "17:00",
   },
 };
+
+export const LUNCH_BREAK = { start: "12:00", end: "12:30" };
 
 // ============================================================
 // TIME HELPERS
@@ -200,6 +202,8 @@ export function getAvailableTimesForService(
 
   const openingMinutes = timeToMinutes(hours.open);
   const closingMinutes = timeToMinutes(hours.close);
+  const lunchStart = timeToMinutes(LUNCH_BREAK.start);
+  const lunchEnd = timeToMinutes(LUNCH_BREAK.end);
 
   const availableTimes: string[] = [];
 
@@ -220,7 +224,8 @@ export function getAvailableTimesForService(
       );
     });
 
-    if (!overlapsExistingBooking) {
+    const overlapsLunch = start < lunchEnd && end > lunchStart;
+    if (!overlapsExistingBooking && !overlapsLunch) {
       availableTimes.push(minutesToTime(start));
     }
   }
@@ -261,6 +266,8 @@ export function isTimeStillAvailable(
     return false;
   }
 
+  if (start < timeToMinutes(LUNCH_BREAK.end) && end > timeToMinutes(LUNCH_BREAK.start)) return false;
+
   return !bookedTimes.some((booking) => {
     const existingStart = timeToMinutes(booking.start_time);
     const existingEnd = timeToMinutes(booking.end_time);
@@ -271,3 +278,5 @@ export function isTimeStillAvailable(
     );
   });
 }
+
+

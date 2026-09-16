@@ -274,7 +274,7 @@ export default function ServicesAdminPage() {
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-widest text-neutral-500">
-              Hair-Artisan's Barbershop
+              Hair Artisans Barbershop
             </p>
 
             <h1 className="mt-1 text-3xl font-semibold tracking-tight">Service Management</h1>
@@ -525,3 +525,5 @@ export default function ServicesAdminPage() {
     </main>
   );
 }
+
+

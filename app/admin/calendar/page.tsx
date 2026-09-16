@@ -618,7 +618,7 @@ export default function AdminCalendar() {
             />
 
             <h3 className="mt-3 text-lg font-black text-red-700">
-              Hair-Artisan's Barbershop is closed
+              Hair Artisans Barbershop is closed
             </h3>
 
             <p className="mt-1 text-sm text-red-600">
@@ -1097,3 +1097,5 @@ export default function AdminCalendar() {
     </main>
   );
 }
+
+

@@ -95,7 +95,7 @@ export default function Home() {
           </span>
 
           <span className="text-xl font-bold tracking-tight">
-            Hair-Artisan's Barbershop
+            Hair Artisans Barbershop
           </span>
         </Link>
 
@@ -123,7 +123,7 @@ export default function Home() {
           <div className="mx-auto h-48 w-48 overflow-hidden rounded-full border-4 border-white shadow-2xl sm:h-56 sm:w-56">
             <img
               src={heroImage}
-              alt="Hair-Artisan's Barbershop"
+              alt="Hair Artisans Barbershop"
               className="h-full w-full object-cover"
             />
           </div>
@@ -133,7 +133,7 @@ export default function Home() {
           </p>
 
           <h1 className="mt-3 text-5xl font-bold uppercase tracking-tight sm:text-7xl">
-            Hair-Artisan's Barbershop
+            Hair Artisans Barbershop
           </h1>
 
           <div className="mt-5 flex items-center justify-center gap-4">
@@ -202,7 +202,7 @@ export default function Home() {
             </h3>
 
             <p className="mt-1 text-sm text-[#777168]">
-              No payment required
+              Pay a 30% deposit or in full
             </p>
           </div>
 
@@ -428,13 +428,13 @@ export default function Home() {
           <Scissors className="h-4 w-4" />
 
           <span className="font-semibold text-[#1c1b19]">
-            Hair-Artisan's Barbershop
+            Hair Artisans Barbershop
           </span>
 
         </div>
 
         <p className="mt-3">
-          © {new Date().getFullYear()} Hair-Artisan's Barbershop. All rights reserved.
+          © {new Date().getFullYear()} Hair Artisans Barbershop. All rights reserved.
         </p>
 
       </footer>
@@ -442,3 +442,5 @@ export default function Home() {
     </main>
   );
 }
+
+
