@@ -10,7 +10,7 @@
 //
 // ============================================================
 
-export const BUSINESS_NAME = "Hair Artisans Barbershop";
+export const BUSINESS_NAME = "Hair-Artisans Barbershop";
 
 export const BUSINESS_TIMEZONE = "Africa/Johannesburg";
 
@@ -47,15 +47,7 @@ export function minutesToTime(minutes: number): string {
 }
 
 export function formatTime(time: string): string {
-  const totalMinutes = timeToMinutes(time);
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  const suffix = hours >= 12 ? "PM" : "AM";
-  const displayHour = hours % 12 || 12;
-
-  return `${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+  return minutesToTime(timeToMinutes(time));
 }
 
 // ============================================================

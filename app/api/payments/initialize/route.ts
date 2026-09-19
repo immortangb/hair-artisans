@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid payment amount." }, { status: 400 });
   }
 
-  const reference = `hab_${bookingId}_${Date.now()}`;
+  const reference = `hab-${bookingId}-${Date.now()}`;
   const callbackUrl = `${getSiteUrl(request)}/booking/callback`;
 
   try {

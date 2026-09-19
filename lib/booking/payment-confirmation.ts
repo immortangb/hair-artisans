@@ -24,6 +24,7 @@ export type ConfirmPaymentResult =
       alreadyProcessed: boolean;
       booking: {
         id: number;
+        confirmation_number: string;
         service_name: string;
         appointment_date: string;
         start_time: string;
@@ -76,6 +77,7 @@ export async function confirmBookingPaymentByReference(
     .select(
       `
         id,
+        confirmation_number,
         appointment_date,
         start_time,
         status,
@@ -115,6 +117,7 @@ export async function confirmBookingPaymentByReference(
       alreadyProcessed: true,
       booking: {
         id: booking.id,
+        confirmation_number: booking.confirmation_number ?? `HA-${booking.id}`,
         service_name: service?.name ?? "Service",
         appointment_date: booking.appointment_date,
         start_time: booking.start_time,
@@ -166,6 +169,7 @@ export async function confirmBookingPaymentByReference(
     alreadyProcessed: false,
     booking: {
       id: booking.id,
+      confirmation_number: booking.confirmation_number ?? `HA-${booking.id}`,
       service_name: service?.name ?? "Service",
       appointment_date: booking.appointment_date,
       start_time: booking.start_time,

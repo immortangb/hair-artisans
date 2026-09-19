@@ -8,7 +8,7 @@ This covers the changes made to your site:
 4. Editable weekly schedule (Admin -> Hours)
 5. Paystack as the payment provider
 6. Admin can reschedule an existing booking's date and time
-7. Business name updated everywhere to "Hair Artisans Barbershop"
+7. Business name updated everywhere to "Hair-Artisans Barbershop"
 
 Follow these steps in order. None of this will break your existing
 bookings, customers, services or photos.

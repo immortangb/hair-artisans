@@ -75,15 +75,7 @@ function formatDateShort(dateString: string) {
 }
 
 function formatTime(time: string) {
-  if (!time) return "-";
-
-  const [hourString, minute] = time.split(":");
-  const hour = Number(hourString);
-
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-
-  return `${displayHour}:${minute} ${suffix}`;
+  return time.slice(0, 5);
 }
 
 function getDateOffset(dateString: string, days: number) {
@@ -625,7 +617,7 @@ export default function AdminCalendar() {
             />
 
             <h3 className="mt-3 text-lg font-black text-red-700">
-              Hair Artisans Barbershop is closed
+              Hair-Artisans Barbershop is closed
             </h3>
 
             <p className="mt-1 text-sm text-red-600">

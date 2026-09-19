@@ -1,8 +1,8 @@
-# Hair Artisans Barbershop — clean repair
+# Hair-Artisans Barbershop — clean repair
 
 This version has been reset from the supplied project and repaired for the following requirements:
 
-- Business name: **Hair Artisans Barbershop**
+- Business name: **Hair-Artisans Barbershop**
 - Monday: Closed
 - Tuesday: Closed
 - Wednesday–Sunday: **10:00–17:00**
@@ -52,7 +52,7 @@ Do not use the full `supabase_setup.sql` as a production repair if your database
 
 ```powershell
 git add .
-git commit -m "Repair Hair Artisans Barbershop branding and booking hours"
+git commit -m "Repair Hair-Artisans Barbershop branding and booking hours"
 git push
 ```
 

@@ -4,35 +4,18 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { fetchBusinessHours, getDayName, type DaySchedule } from "@/lib/booking/schedule";
 
-type Hours = { day_of_week: number; is_closed: boolean; open_time: string | null; close_time: string | null; break_start: string | null; break_end: string | null };
-const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const ORDER = [1,2,3,4,5,6,0];
+function inputTime(v: string | null) { return v?.slice(0,5) || ""; }
+function dbTime(v: string) { return v ? `${v}:00` : null; }
 
 export default function ScheduleAdminPage() {
-  const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
-  const [rows, setRows] = useState<Hours[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-
-  useEffect(() => { void (async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return router.replace("/admin/login");
-    const { data: admin } = await supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle();
-    if (!admin) return router.replace("/admin/login");
-    const { data } = await supabase.from("business_hours").select("day_of_week,is_closed,open_time,close_time,break_start,break_end").order("day_of_week");
-    setRows((data as Hours[] || []));
-  })(); }, [router, supabase]);
-
-  function update(day: number, patch: Partial<Hours>) { setRows((current) => current.map((row) => row.day_of_week === day ? { ...row, ...patch } : row)); }
-  async function save() {
-    setSaving(true); setMessage("");
-    const clean = rows.map((row) => row.is_closed ? { ...row, open_time: null, close_time: null, break_start: null, break_end: null, updated_at: new Date().toISOString() } : { ...row, updated_at: new Date().toISOString() });
-    const { error } = await supabase.from("business_hours").upsert(clean, { onConflict: "day_of_week" });
-    setMessage(error ? error.message : "Weekly schedule saved. New bookings will use it immediately."); setSaving(false);
-  }
-
-  return <main className="min-h-screen bg-[#f7f5f0] p-5 text-[#1c1b19] sm:p-10"><div className="mx-auto max-w-4xl"><Link href="/admin/dashboard" className="text-sm underline">← Admin dashboard</Link><h1 className="mt-5 text-3xl font-semibold">Weekly schedule</h1><p className="mt-2 text-[#70695f]">Set open days, hours and lunch breaks. A service cannot overlap the break.</p><div className="mt-7 space-y-3">{rows.map((row) => <div key={row.day_of_week} className="grid gap-3 rounded-2xl bg-white p-4 shadow-sm md:grid-cols-[130px_100px_1fr_1fr_1fr_1fr]"><strong className="self-center">{names[row.day_of_week]}</strong><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={row.is_closed} onChange={(e) => update(row.day_of_week, { is_closed: e.target.checked })} /> Closed</label>{!row.is_closed && <><label className="text-xs">Open<input type="time" value={row.open_time?.slice(0,5) || ""} onChange={(e) => update(row.day_of_week, { open_time: e.target.value })} className="mt-1 block w-full rounded border p-2" /></label><label className="text-xs">Close<input type="time" value={row.close_time?.slice(0,5) || ""} onChange={(e) => update(row.day_of_week, { close_time: e.target.value })} className="mt-1 block w-full rounded border p-2" /></label><label className="text-xs">Lunch starts<input type="time" value={row.break_start?.slice(0,5) || ""} onChange={(e) => update(row.day_of_week, { break_start: e.target.value || null })} className="mt-1 block w-full rounded border p-2" /></label><label className="text-xs">Lunch ends<input type="time" value={row.break_end?.slice(0,5) || ""} onChange={(e) => update(row.day_of_week, { break_end: e.target.value || null })} className="mt-1 block w-full rounded border p-2" /></label></>}</div>)}</div><button onClick={save} disabled={saving} className="mt-6 rounded-xl bg-[#1c1b19] px-5 py-3 font-semibold text-white disabled:opacity-60">{saving ? "Saving…" : "Save schedule"}</button>{message && <p className="mt-3 text-sm">{message}</p>}</div></main>;
+  const supabase=useMemo(()=>createClient(),[]); const router=useRouter();
+  const [days,setDays]=useState<Record<number,DaySchedule>>({}); const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false); const [message,setMessage]=useState(""); const [error,setError]=useState("");
+  useEffect(()=>{ void (async()=>{ const {data:{user}}=await supabase.auth.getUser(); if(!user){router.replace('/admin/login');return;} const {data:admin}=await supabase.from('admin_users').select('user_id').eq('user_id',user.id).maybeSingle(); if(!admin){router.replace('/admin/login');return;} const schedule=await fetchBusinessHours(supabase); setDays(Object.fromEntries(ORDER.map(d=>[d,schedule.find(x=>x.day_of_week===d) || {day_of_week:d,is_open:false,open_time:null,close_time:null,break_start:null,break_end:null}] ))); setLoading(false); })(); },[router,supabase]);
+  function update(day:number,patch:Partial<DaySchedule>){setDays(c=>({...c,[day]:{...c[day],...patch}}));setMessage('');setError('');}
+  function validate(){ for(const d of ORDER){const x=days[d]; if(!x.is_open)continue; if(!x.open_time||!x.close_time)return `${getDayName(d)}: set opening and closing time.`; if(x.open_time>=x.close_time)return `${getDayName(d)}: closing time must be after opening time.`; if((x.break_start&&!x.break_end)||(!x.break_start&&x.break_end))return `${getDayName(d)}: set both lunch times or leave both blank.`; if(x.break_start&&x.break_end&&(x.break_start>=x.break_end||x.break_start<x.open_time||x.break_end>x.close_time))return `${getDayName(d)}: lunch must be inside opening hours and end after it starts.`;} return null; }
+  async function save(){setMessage('');setError('');const v=validate();if(v){setError(v);return;}setSaving(true);const rows=ORDER.map(d=>{const x=days[d];return {day_of_week:d,is_open:x.is_open,open_time:x.is_open?x.open_time:null,close_time:x.is_open?x.close_time:null,break_start:x.is_open?x.break_start:null,break_end:x.is_open?x.break_end:null,updated_at:new Date().toISOString()};});const {error}=await supabase.from('business_hours').upsert(rows,{onConflict:'day_of_week'});if(error)setError(error.message);else setMessage('Weekly schedule saved. New bookings use these times immediately.');setSaving(false);}
+  return <main className="min-h-screen bg-[#f7f5f0] p-5 text-[#1c1b19] sm:p-10"><div className="mx-auto max-w-5xl"><div className="flex flex-wrap items-center justify-between gap-3"><div><Link href="/admin/dashboard" className="text-sm underline">← Admin dashboard</Link><h1 className="mt-5 text-3xl font-semibold">Weekly schedule</h1><p className="mt-2 text-[#70695f]">All times use South African local time (Africa/Johannesburg). Lunch defaults to 12:00–12:30.</p></div><Link href="/admin/hours" className="rounded-xl border bg-white px-4 py-3 text-sm font-medium">Business Hours</Link></div>{message&&<div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">{message}</div>}{error&&<div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}<section className="mt-7 space-y-4">{loading?<p>Loading schedule...</p>:ORDER.map(d=>{const x=days[d];return <div key={d} className="rounded-2xl border bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><strong className="text-lg">{getDayName(d)}</strong><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={x.is_open} onChange={e=>update(d,{is_open:e.target.checked,open_time:e.target.checked?(x.open_time||'10:00:00'):null,close_time:e.target.checked?(x.close_time||'17:00:00'):null})}/> Open</label></div>{x.is_open&&<div className="mt-4 grid gap-4 sm:grid-cols-4"><label className="text-xs font-medium uppercase text-neutral-500">Opens<input type="time" value={inputTime(x.open_time)} onChange={e=>update(d,{open_time:dbTime(e.target.value)})} className="mt-1 w-full rounded-lg border p-2 text-sm"/></label><label className="text-xs font-medium uppercase text-neutral-500">Closes<input type="time" value={inputTime(x.close_time)} onChange={e=>update(d,{close_time:dbTime(e.target.value)})} className="mt-1 w-full rounded-lg border p-2 text-sm"/></label><label className="text-xs font-medium uppercase text-neutral-500">Lunch starts<input type="time" value={inputTime(x.break_start)} onChange={e=>update(d,{break_start:dbTime(e.target.value)})} className="mt-1 w-full rounded-lg border p-2 text-sm"/></label><label className="text-xs font-medium uppercase text-neutral-500">Lunch ends<input type="time" value={inputTime(x.break_end)} onChange={e=>update(d,{break_end:dbTime(e.target.value)})} className="mt-1 w-full rounded-lg border p-2 text-sm"/></label></div>}</div>})}</section><button onClick={save} disabled={saving||loading} className="mt-7 rounded-xl bg-[#1c1b19] px-6 py-3 font-semibold text-white disabled:opacity-60">{saving?'Saving...':'Save weekly schedule'}</button></div></main>;
 }
-
-

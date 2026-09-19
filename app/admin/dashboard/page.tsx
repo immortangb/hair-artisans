@@ -79,15 +79,7 @@ function formatDate(dateString: string) {
 }
 
 function formatTime(time: string) {
-  if (!time) return "-";
-
-  const [hourString, minute] = time.split(":");
-  const hour = Number(hourString);
-
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-
-  return `${displayHour}:${minute} ${suffix}`;
+  return time.slice(0, 5);
 }
 
 export default function AdminDashboard() {

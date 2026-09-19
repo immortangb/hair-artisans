@@ -16,6 +16,7 @@ import { BUSINESS_NAME, BUSINESS_TIMEZONE } from "@/lib/booking/config";
 
 type VerifiedBooking = {
   id: number;
+  confirmation_number: string;
   service_name: string;
   appointment_date: string;
   start_time: string;
@@ -48,11 +49,7 @@ function formatDate(dateString: string): string {
 }
 
 function formatTime(timeString: string): string {
-  const [hours, minutes] = timeString.slice(0, 5).split(":").map(Number);
-  const suffix = hours >= 12 ? "PM" : "AM";
-  const displayHour = hours % 12 || 12;
-
-  return `${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+  return timeString.slice(0, 5);
 }
 
 function CallbackContent() {
@@ -188,17 +185,18 @@ function CallbackContent() {
         <Camera className="mt-0.5 h-5 w-5 shrink-0 text-[#916b1f]" />
         <p className="text-sm leading-6 text-[#6b5316]">
           <span className="font-semibold">
-            Please take a screenshot of this page
+            Please screenshot this booking confirmation
           </span>{" "}
-          and show it to the barber when you arrive - it&apos;s your proof
-          of booking and payment.
+          and show it to the barber when you arrive. Keep your confirmation
+          number because you can use it on the booking page to check your
+          appointment status, amount paid and amount still due.
         </p>
       </div>
 
       <div className="mx-auto mb-8 max-w-md rounded-2xl border border-[#ded9cf] bg-[#faf9f6] p-6 text-left">
         <div className="mb-5 flex items-center justify-between border-b border-[#e4e0d8] pb-4">
-          <span className="text-sm text-[#77716a]">Booking number</span>
-          <span className="font-semibold">HA-{booking.id}</span>
+          <span className="text-sm text-[#77716a]">Booking confirmation number</span>
+          <span className="font-semibold">{booking.confirmation_number}</span>
         </div>
 
         <div className="space-y-4">
@@ -269,6 +267,13 @@ function CallbackContent() {
       </p>
 
       <div className="flex flex-col justify-center gap-3 sm:flex-row">
+        <Link
+          href={`/booking/status?confirmation=${encodeURIComponent(booking.confirmation_number)}`}
+          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d5d0c7] bg-white px-6 font-medium text-[#1c1b19] transition hover:bg-[#f5f2ec]"
+        >
+          Check booking status
+        </Link>
+
         <Link
           href="/"
           className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#1c1b19] px-6 font-medium text-white transition hover:bg-[#34312d]"
