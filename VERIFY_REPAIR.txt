@@ -1,0 +1,12 @@
+Hair-Artisan's Barbershop repair verification
+==============================================
+
+Business name: Hair-Artisan's Barbershop
+Public hours: Wednesday-Sunday 10:00-17:00
+Closed: Monday and Tuesday
+Existing 09:00/09:30 bookings: preserved; no DELETE/UPDATE booking statement was added
+Public booking DB start rule: p_start_time < 10:00 is rejected
+DB closing rule: 17:00
+Booking interval: 30 minutes
+Payment/SMS: not added
+Internal RPC: create_hair_artisans_booking preserved for compatibility
