@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 import { createClient } from "../lib/supabase/client";
 import RecentWork from "@/components/home/RecentWork";
+import {
+  FALLBACK_SCHEDULE,
+  fetchBusinessHours,
+  formatDaySummary,
+  getDayName,
+  type WeekSchedule,
+} from "@/lib/booking/schedule";
 
 type Service = {
   id: number;
@@ -51,6 +58,7 @@ export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [heroImage, setHeroImage] = useState("/images/hero.jpg");
+  const [schedule, setSchedule] = useState<WeekSchedule>(FALLBACK_SCHEDULE);
 
   useEffect(() => {
     async function loadServices() {
@@ -75,6 +83,10 @@ export default function Home() {
         .maybeSingle();
 
       if (!heroError && heroSetting?.value) setHeroImage(heroSetting.value);
+
+      const loadedSchedule = await fetchBusinessHours(supabase);
+      setSchedule(loadedSchedule);
+
       setLoading(false);
     }
 
@@ -202,7 +214,7 @@ export default function Home() {
             </h3>
 
             <p className="mt-1 text-sm text-[#777168]">
-              Pay a 30% deposit or in full
+              No payment required
             </p>
           </div>
 
@@ -350,38 +362,35 @@ export default function Home() {
 
           <div className="mx-auto mt-10 max-w-md space-y-4">
 
-            {[
-              ["Monday", "Closed"],
-              ["Tuesday", "Closed"],
-              ["Wednesday", "10:00 – 17:00"],
-              ["Thursday", "10:00 – 17:00"],
-              ["Friday", "10:00 – 17:00"],
-              ["Saturday", "10:00 – 17:00"],
-              ["Sunday", "10:00 – 17:00"],
-            ].map(([day, hours]) => (
+            {[1, 2, 3, 4, 5, 6, 0].map((dayOfWeek) => {
+              const day = schedule.find((d) => d.day_of_week === dayOfWeek);
+              const isClosed = !day || !day.is_open;
 
-              <div
-                key={day}
-                className="flex items-center justify-between border-b border-white/10 pb-3"
-              >
+              return (
 
-                <span className="font-medium">
-                  {day}
-                </span>
-
-                <span
-                  className={`text-sm ${
-                    hours === "Closed"
-                      ? "text-red-300"
-                      : "text-white/60"
-                  }`}
+                <div
+                  key={dayOfWeek}
+                  className="flex items-center justify-between border-b border-white/10 pb-3"
                 >
-                  {hours}
-                </span>
 
-              </div>
+                  <span className="font-medium">
+                    {getDayName(dayOfWeek)}
+                  </span>
 
-            ))}
+                  <span
+                    className={`text-sm ${
+                      isClosed
+                        ? "text-red-300"
+                        : "text-white/60"
+                    }`}
+                  >
+                    {formatDaySummary(day ?? null)}
+                  </span>
+
+                </div>
+
+              );
+            })}
 
           </div>
 
@@ -442,5 +451,3 @@ export default function Home() {
     </main>
   );
 }
-
-

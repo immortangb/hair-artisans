@@ -264,6 +264,14 @@ export default function GalleryAdminPage() {
 
             <button
               type="button"
+              onClick={() => router.push("/admin/hours")}
+              className="rounded-xl border px-4 py-3 text-sm font-medium hover:bg-neutral-50"
+            >
+              Hours
+            </button>
+
+            <button
+              type="button"
               onClick={logout}
               className="rounded-xl border px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
             >
@@ -448,5 +456,3 @@ export default function GalleryAdminPage() {
     </main>
   );
 }
-
-

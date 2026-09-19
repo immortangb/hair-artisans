@@ -25,6 +25,9 @@ type Booking = {
   start_time: string;
   end_time: string;
   status: "pending" | "confirmed" | "completed" | "cancelled";
+  payment_status?: "pending" | "deposit_paid" | "paid_full";
+  deposit_amount?: number;
+  balance_amount?: number;
   created_at: string;
 };
 
@@ -100,6 +103,12 @@ export default function AdminDashboard() {
 
   const [updatingBooking, setUpdatingBooking] = useState<number | null>(null);
 
+  const [rescheduleBooking, setRescheduleBooking] = useState<BookingRow | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
+
   const [adminName, setAdminName] = useState("Admin");
 
   async function checkAdminAndLoad() {
@@ -153,6 +162,9 @@ export default function AdminDashboard() {
           start_time,
           end_time,
           status,
+          payment_status,
+          deposit_amount,
+          balance_amount,
           created_at
         `
         )
@@ -280,6 +292,54 @@ export default function AdminDashboard() {
       alert("Something went wrong while updating the booking.");
     } finally {
       setUpdatingBooking(null);
+    }
+  }
+
+  function openReschedule(booking: BookingRow) {
+    setRescheduleBooking(booking);
+    setRescheduleDate(booking.appointment_date);
+    setRescheduleTime(booking.start_time.slice(0, 5));
+    setRescheduleError("");
+  }
+
+  function closeReschedule() {
+    setRescheduleBooking(null);
+    setRescheduleDate("");
+    setRescheduleTime("");
+    setRescheduleError("");
+  }
+
+  async function submitReschedule() {
+    if (!rescheduleBooking || !rescheduleDate || !rescheduleTime) {
+      setRescheduleError("Please choose a date and time.");
+      return;
+    }
+
+    setRescheduling(true);
+    setRescheduleError("");
+
+    try {
+      const { error } = await supabase.rpc("admin_reschedule_booking", {
+        p_booking_id: rescheduleBooking.id,
+        p_new_date: rescheduleDate,
+        p_new_start_time: `${rescheduleTime}:00`,
+      });
+
+      if (error) {
+        console.error("Reschedule error:", error);
+        setRescheduleError(
+          error.message || "Could not reschedule this booking."
+        );
+        return;
+      }
+
+      closeReschedule();
+      await loadBookings();
+    } catch (error) {
+      console.error(error);
+      setRescheduleError("Something went wrong. Please try again.");
+    } finally {
+      setRescheduling(false);
     }
   }
 
@@ -427,6 +487,26 @@ export default function AdminDashboard() {
     }
   }
 
+  function getPaymentBadge(booking: Booking) {
+    switch (booking.payment_status) {
+      case "paid_full":
+        return { label: "Paid in full", classes: "bg-emerald-100 text-emerald-700" };
+      case "deposit_paid":
+        return {
+          label: `Deposit paid${
+            booking.balance_amount
+              ? ` \u00b7 R${Number(booking.balance_amount).toFixed(0)} due`
+              : ""
+          }`,
+          classes: "bg-amber-100 text-amber-700",
+        };
+      case "pending":
+        return { label: "Payment pending", classes: "bg-gray-100 text-gray-500" };
+      default:
+        return null;
+    }
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -474,6 +554,7 @@ export default function AdminDashboard() {
               </Link>
               <Link href="/admin/gallery" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Our Work</Link>
               <Link href="/admin/website" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Website</Link>
+              <Link href="/admin/hours" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Hours</Link>
               <Link href="/admin/calendar" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Calendar</Link>
               <Link href="/admin/customers" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700">Customers</Link>
 
@@ -849,6 +930,16 @@ export default function AdminDashboard() {
                     </span>
                   </div>
 
+                  {getPaymentBadge(booking) && (
+                    <span
+                      className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                        getPaymentBadge(booking)!.classes
+                      }`}
+                    >
+                      {getPaymentBadge(booking)!.label}
+                    </span>
+                  )}
+
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-gray-400">
@@ -893,32 +984,42 @@ export default function AdminDashboard() {
 
                   {(booking.status === "pending" ||
                     booking.status === "confirmed") && (
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4 flex flex-col gap-2">
                       <button
-                        onClick={() =>
-                          updateBookingStatus(
-                            booking.id,
-                            "completed"
-                          )
-                        }
+                        onClick={() => openReschedule(booking)}
                         disabled={updatingBooking === booking.id}
-                        className="flex-1 rounded-xl bg-black px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                        className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-50"
                       >
-                        Complete
+                        Reschedule
                       </button>
 
-                      <button
-                        onClick={() =>
-                          updateBookingStatus(
-                            booking.id,
-                            "cancelled"
-                          )
-                        }
-                        disabled={updatingBooking === booking.id}
-                        className="flex-1 rounded-xl border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-600 disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() =>
+                            updateBookingStatus(
+                              booking.id,
+                              "completed"
+                            )
+                          }
+                          disabled={updatingBooking === booking.id}
+                          className="flex-1 rounded-xl bg-black px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                        >
+                          Complete
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateBookingStatus(
+                              booking.id,
+                              "cancelled"
+                            )
+                          }
+                          disabled={updatingBooking === booking.id}
+                          className="flex-1 rounded-xl border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-600 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1053,12 +1154,33 @@ export default function AdminDashboard() {
                         >
                           {booking.status}
                         </span>
+
+                        {getPaymentBadge(booking) && (
+                          <span
+                            className={`mt-1 block w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                              getPaymentBadge(booking)!.classes
+                            }`}
+                          >
+                            {getPaymentBadge(booking)!.label}
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-5 py-4">
                         {(booking.status === "pending" ||
                           booking.status === "confirmed") && (
-                          <div className="flex justify-end gap-2">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                              onClick={() => openReschedule(booking)}
+                              disabled={
+                                updatingBooking === booking.id
+                              }
+                              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              <CalendarDays size={14} />
+                              Reschedule
+                            </button>
+
                             <button
                               onClick={() =>
                                 updateBookingStatus(
@@ -1169,6 +1291,69 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {rescheduleBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold">Reschedule booking</h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              {rescheduleBooking.customer?.full_name || "Unknown customer"}
+              {" \u00b7 "}
+              {rescheduleBooking.service?.name || "Service"}
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  New date
+                </label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(event) => setRescheduleDate(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  New time
+                </label>
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(event) => setRescheduleTime(event.target.value)}
+                  step={1800}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+
+            {rescheduleError && (
+              <p className="mt-3 text-sm text-red-600">{rescheduleError}</p>
+            )}
+
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={closeReschedule}
+                disabled={rescheduling}
+                className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => void submitReschedule()}
+                disabled={rescheduling}
+                className="flex-1 rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {rescheduling ? "Saving..." : "Save new time"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

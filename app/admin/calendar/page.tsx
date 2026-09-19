@@ -492,6 +492,13 @@ export default function AdminCalendar() {
                 Services
               </Link>
 
+              <Link
+                href="/admin/hours"
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Hours
+              </Link>
+
               <button
                 onClick={logout}
                 disabled={loggingOut}
@@ -1097,5 +1104,3 @@ export default function AdminCalendar() {
     </main>
   );
 }
-
-

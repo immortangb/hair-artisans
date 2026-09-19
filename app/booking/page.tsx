@@ -9,8 +9,8 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
-  CheckCircle2,
   Clock3,
+  CreditCard,
   Mail,
   MessageSquare,
   Phone,
@@ -22,19 +22,29 @@ import { createClient } from "@/lib/supabase/client";
 import RecentWork from "@/components/home/RecentWork";
 import { getServiceImage } from "@/lib/booking/service-images";
 import {
-  BUSINESS_HOURS,
   BUSINESS_NAME,
   BOOKING_INTERVAL_MINUTES,
   BOOKING_WINDOW_DAYS,
+  MINIMUM_DEPOSIT_PERCENTAGE,
   formatTime,
-  getBusinessHours,
   getDateOffset,
   getDayOfWeek,
+  getDepositAmount,
   getTodaySouthAfrica,
-  isBookableDate,
   minutesToTime,
+  roundCurrency,
   timeToMinutes,
 } from "@/lib/booking/config";
+import {
+  FALLBACK_SCHEDULE,
+  fetchBusinessHours,
+  formatDaySummary,
+  getDayName,
+  getScheduleForDate,
+  isBookableDate,
+  isTimeStillAvailable,
+  type WeekSchedule,
+} from "@/lib/booking/schedule";
 
 type Service = {
   id: number;
@@ -50,21 +60,6 @@ type BookedTime = {
 };
 
 type BookingStep = 1 | 2 | 3 | 4 | 5;
-
-type BookingResult = {
-  success: boolean;
-  bookingId?: number;
-  message?: string;
-};
-
-type ScheduleRow = {
-  day_of_week: number;
-  is_closed: boolean;
-  open_time: string | null;
-  close_time: string | null;
-  break_start: string | null;
-  break_end: string | null;
-};
 
 const SERVICE_IMAGES: Record<string, string> = {
   "chiskop": "/images/gallery/gallery-01.jpeg",
@@ -165,15 +160,14 @@ function getCurrentMinutesSouthAfrica(): number {
   return hour * 60 + minute;
 }
 
-function getDateList(schedule: Record<number, ScheduleRow>): string[] {
+function getDateList(schedule: WeekSchedule): string[] {
   const today = getTodaySouthAfrica();
   const dates: string[] = [];
 
   for (let offset = 0; offset < BOOKING_WINDOW_DAYS; offset += 1) {
     const date = getDateOffset(today, offset);
 
-    const saved = schedule[getDayOfWeek(date)];
-    if (saved ? !saved.is_closed : isBookableDate(date)) {
+    if (isBookableDate(schedule, date)) {
       dates.push(date);
     }
   }
@@ -182,26 +176,23 @@ function getDateList(schedule: Record<number, ScheduleRow>): string[] {
 }
 
 function getAvailableTimes(
+  schedule: WeekSchedule,
   dateString: string,
   durationMinutes: number,
-  bookedTimes: BookedTime[],
-  schedule: Record<number, ScheduleRow>,
+  bookedTimes: BookedTime[]
 ): string[] {
   if (!dateString || durationMinutes <= 0) {
     return [];
   }
 
-  const saved = schedule[getDayOfWeek(dateString)];
-  const hours = saved && !saved.is_closed && saved.open_time && saved.close_time
-    ? { open: saved.open_time, close: saved.close_time }
-    : getBusinessHours(dateString);
+  const day = getScheduleForDate(schedule, dateString);
 
-  if (!hours || !hours.open || !hours.close) {
+  if (!day || !day.is_open || !day.open_time || !day.close_time) {
     return [];
   }
 
-  const openingMinutes = timeToMinutes(hours.open);
-  const closingMinutes = timeToMinutes(hours.close);
+  const openingMinutes = timeToMinutes(day.open_time);
+  const closingMinutes = timeToMinutes(day.close_time);
   const today = getTodaySouthAfrica();
 
   const currentMinutes =
@@ -220,10 +211,15 @@ function getAvailableTimes(
 
     const startTime = minutesToTime(start);
 
-    const overlapsBreak = Boolean(saved?.break_start && saved?.break_end && start < timeToMinutes(saved.break_end) && start + durationMinutes > timeToMinutes(saved.break_start));
-    const end = start + durationMinutes;
-    const overlapsBooking = bookedTimes.some((booking) => start < timeToMinutes(booking.end_time) && end > timeToMinutes(booking.start_time));
-    if (!overlapsBreak && !overlapsBooking) {
+    if (
+      isTimeStillAvailable(
+        schedule,
+        dateString,
+        startTime,
+        durationMinutes,
+        bookedTimes
+      )
+    ) {
       times.push(startTime);
     }
   }
@@ -257,6 +253,8 @@ function BookingPageInner() {
   const [services, setServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
 
+  const [schedule, setSchedule] = useState<WeekSchedule>(FALLBACK_SCHEDULE);
+
   const [step, setStep] = useState<BookingStep>(1);
 
   const [selectedServiceId, setSelectedServiceId] =
@@ -273,12 +271,10 @@ function BookingPageInner() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
-  const [paymentOption, setPaymentOption] = useState<"deposit" | "full">("deposit");
-  const [schedule, setSchedule] = useState<Record<number, ScheduleRow>>({});
+
+  const [payFull, setPayFull] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
-  const [bookingResult, setBookingResult] =
-    useState<BookingResult | null>(null);
 
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -344,10 +340,19 @@ function BookingPageInner() {
   }, [loadServices]);
 
   useEffect(() => {
-    void supabase.from("business_hours").select("day_of_week,is_closed,open_time,close_time,break_start,break_end").then(({ data }) => {
-      if (!data) return;
-      setSchedule(Object.fromEntries((data as ScheduleRow[]).map((row) => [row.day_of_week, row])));
-    });
+    let cancelled = false;
+
+    void (async () => {
+      const loadedSchedule = await fetchBusinessHours(supabase);
+
+      if (!cancelled) {
+        setSchedule(loadedSchedule);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [supabase]);
 
   const loadAvailability = useCallback(
@@ -382,10 +387,10 @@ function BookingPageInner() {
       setBookedTimes(bookings);
 
       const times = getAvailableTimes(
+        schedule,
         dateString,
         selectedService.duration_minutes,
-        bookings,
-        schedule
+        bookings
       );
 
       setAvailableTimes(times);
@@ -428,7 +433,7 @@ function BookingPageInner() {
   };
 
   const handleDateSelect = (date: string) => {
-    if (schedule[getDayOfWeek(date)] ? schedule[getDayOfWeek(date)].is_closed : !isBookableDate(date)) {
+    if (!isBookableDate(schedule, date)) {
       return;
     }
 
@@ -465,7 +470,9 @@ function BookingPageInner() {
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setErrorMessage("Please enter a valid email address for your confirmation.");
+      setErrorMessage(
+        "Please enter a valid email address - it's required by Paystack to process your payment."
+      );
       return false;
     }
 
@@ -506,17 +513,78 @@ function BookingPageInner() {
     setErrorMessage("");
 
     try {
-      const response = await fetch("/api/paystack/initialize", {
+      // Step 1: create the booking. It is inserted as "pending" -
+      // it only becomes "confirmed" once Paystack confirms the
+      // deposit/full payment.
+      const { data, error } = await supabase.rpc(
+        "create_hair_artisans_booking",
+        {
+          p_full_name: fullName.trim(),
+          p_phone: phone.trim(),
+          p_email: email.trim(),
+          p_notes: notes.trim() || null,
+          p_service_id: selectedService.id,
+          p_appointment_date: selectedDate,
+          p_start_time: selectedTime,
+          p_pay_full: payFull,
+        }
+      );
+
+      if (error) {
+        console.error("Booking error:", error);
+
+        setErrorMessage(
+          error.message?.toLowerCase().includes("available")
+            ? "That time is no longer available. Please choose another time."
+            : error.message || "We could not complete your booking. Please try again."
+        );
+
+        await loadAvailability(selectedDate);
+        setStep(3);
+        return;
+      }
+
+      const rawId =
+        typeof data === "object" &&
+        data !== null &&
+        "id" in data
+          ? data.id
+          : data;
+
+      const bookingId = Number(rawId);
+
+      if (!Number.isFinite(bookingId) || bookingId <= 0) {
+        console.error("Unexpected booking response:", data);
+
+        setErrorMessage(
+          "Your booking may have been created, but we could not retrieve the booking number. Please contact the shop."
+        );
+
+        return;
+      }
+
+      // Step 2: start the Paystack payment for the deposit/full
+      // amount and redirect the browser to Paystack's checkout.
+      const response = await fetch("/api/payments/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, phone, email, notes, serviceId: selectedService.id, appointmentDate: selectedDate, startTime: selectedTime, paymentOption }),
+        body: JSON.stringify({ bookingId }),
       });
-      const result = await response.json();
-      if (!response.ok || !result.authorizationUrl) {
-        throw new Error(result.error || "Could not start payment.");
+
+      const paymentData = await response.json();
+
+      if (!response.ok || !paymentData?.authorizationUrl) {
+        console.error("Payment initialize error:", paymentData);
+
+        setErrorMessage(
+          paymentData?.error ||
+            "We could not start the payment. Your booking is saved but not yet confirmed - please try again."
+        );
+
+        return;
       }
-      window.location.assign(result.authorizationUrl);
-      return;
+
+      window.location.href = paymentData.authorizationUrl;
     } catch (error) {
       console.error("Unexpected booking error:", error);
 
@@ -550,123 +618,6 @@ function BookingPageInner() {
       setStep(4);
     }
   };
-
-  const resetBooking = () => {
-    setSelectedServiceId("");
-    setSelectedDate("");
-    setSelectedTime("");
-    setBookedTimes([]);
-    setAvailableTimes([]);
-    setFullName("");
-    setPhone("");
-    setEmail("");
-    setNotes("");
-    setBookingResult(null);
-    setErrorMessage("");
-    setStep(1);
-  };
-
-  if (bookingResult?.success) {
-    return (
-      <main className="min-h-screen bg-[#f7f5f0] text-[#1c1b19]">
-        <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-5 py-16">
-          <div className="w-full rounded-3xl border border-[#ded9cf] bg-white p-8 text-center shadow-sm sm:p-12">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#efe7d5]">
-              <CheckCircle2 className="h-10 w-10 text-[#806a40]" />
-            </div>
-
-            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#806a40]">
-              Booking confirmed
-            </p>
-
-            <h1 className="mb-4 text-3xl font-semibold sm:text-4xl">
-              You&apos;re booked!
-            </h1>
-
-            <p className="mx-auto mb-8 max-w-xl leading-7 text-[#66615a]">
-              Thanks, {fullName.trim()}. Your appointment at{" "}
-              {BUSINESS_NAME} has been booked successfully. Your chair is reserved for the time shown below.
-            </p>
-
-            <div className="mx-auto mb-8 max-w-md rounded-2xl border border-[#ded9cf] bg-[#faf9f6] p-6 text-left">
-              <div className="mb-5 flex items-center justify-between border-b border-[#e4e0d8] pb-4">
-                <span className="text-sm text-[#77716a]">
-                  Booking number
-                </span>
-
-                <span className="font-semibold">
-                  HA-{bookingResult.bookingId}
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Scissors className="mt-0.5 h-5 w-5 shrink-0 text-[#806a40]" />
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#88827a]">
-                      Service
-                    </p>
-                    <p className="font-medium">
-                      {selectedService?.name}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-[#806a40]" />
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#88827a]">
-                      Date
-                    </p>
-                    <p className="font-medium">
-                      {formatDate(selectedDate)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-[#806a40]" />
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#88827a]">
-                      Time
-                    </p>
-                    <p className="font-medium">
-                      {formatTime(selectedTime)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p className="mb-8 text-sm leading-6 text-[#77716a]">
-              Please arrive a few minutes before your appointment.
-              If you need to make a change, contact the shop directly.
-            </p>
-
-            <div className="flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href="/"
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#1c1b19] px-6 font-medium text-white transition hover:bg-[#34312d]"
-              >
-                Back to home
-              </Link>
-
-              <button
-                type="button"
-                onClick={resetBooking}
-                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d5d0c7] bg-white px-6 font-medium text-[#1c1b19] transition hover:bg-[#f5f2ec]"
-              >
-                Make another booking
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-[#f7f5f0] text-[#1c1b19]">
@@ -910,8 +861,7 @@ function BookingPageInner() {
                   </h2>
 
                   <p className="mt-2 text-sm leading-6 text-[#77716a]">
-                    We&apos;re open Wednesday through Sunday, from
-                    10:00 to 17:00.
+                    Choose from the available dates below.
                   </p>
                 </div>
 
@@ -963,41 +913,39 @@ function BookingPageInner() {
                 )}
 
                 <div className="mb-7 grid grid-cols-2 gap-3 rounded-2xl bg-[#faf9f6] p-4 sm:grid-cols-5">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#918a81]">
-                      Wednesday
-                    </p>
-                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#918a81]">
-                      Thursday
-                    </p>
-                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#918a81]">
-                      Friday
-                    </p>
-                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#918a81]">
-                      Saturday
-                    </p>
-                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-[#918a81]">
-                      Sunday
-                    </p>
-                    <p className="mt-1 text-sm font-medium">10:00–17:00</p>
-                  </div>
+                  {schedule
+                    .filter((day) => day.is_open)
+                    .map((day) => (
+                      <div key={day.day_of_week}>
+                        <p className="text-xs uppercase tracking-wide text-[#918a81]">
+                          {getDayName(day.day_of_week)}
+                        </p>
+                        <p className="mt-1 text-sm font-medium">
+                          {day.open_time && day.close_time
+                            ? `${formatTime(day.open_time)}–${formatTime(day.close_time)}`
+                            : "Closed"}
+                        </p>
+                      </div>
+                    ))}
                 </div>
+
+                {(() => {
+                  const anyBreak = schedule.find(
+                    (day) => day.is_open && day.break_start && day.break_end
+                  );
+
+                  if (!anyBreak || !anyBreak.break_start || !anyBreak.break_end) {
+                    return null;
+                  }
+
+                  return (
+                    <p className="-mt-4 mb-7 text-sm text-[#918a81]">
+                      Lunch break {formatTime(anyBreak.break_start)}–
+                      {formatTime(anyBreak.break_end)} daily - not
+                      bookable.
+                    </p>
+                  );
+                })()}
 
                 <div className="mb-5 flex items-center justify-between">
                   <button
@@ -1050,7 +998,7 @@ function BookingPageInner() {
                         key={date}
                         type="button"
                         onClick={() => handleDateSelect(date)}
-                        disabled={schedule[day] ? schedule[day].is_closed : !isBookableDate(date)}
+                        disabled={!isBookableDate(schedule, date)}
                         className={[
                           "relative rounded-2xl border p-4 text-left transition",
                           selected
@@ -1310,9 +1258,16 @@ function BookingPageInner() {
                         }
                         placeholder="you@example.com"
                         autoComplete="email"
+                        required
                         className="min-h-13 w-full rounded-xl border border-[#d8d3ca] bg-white pl-12 pr-4 outline-none transition placeholder:text-[#aaa49c] focus:border-[#806a40] focus:ring-2 focus:ring-[#806a40]/10"
                       />
                     </div>
+
+                    <p className="mt-2 text-xs text-[#969087]">
+                      Required to process your payment with Paystack.
+                      You&apos;ll confirm your booking on screen after
+                      paying - no email is sent.
+                    </p>
                   </div>
 
                   <div>
@@ -1488,17 +1443,88 @@ function BookingPageInner() {
 
                 <div className="mt-7 rounded-2xl border border-[#dcd5c8] bg-[#f7f3e9] p-5">
                   <div className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#806a40]" />
+                    <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-[#806a40]" />
 
-                    <div>
-                      <p className="font-semibold">Secure your appointment with Paystack</p>
-                      <p className="mt-1 text-sm leading-6 text-[#70695f]">Choose a 30% deposit or pay in full. Your booking is confirmed after successful payment.</p>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {(["deposit", "full"] as const).map((option) => {
-                          const amount = option === "deposit" ? selectedService!.price * 0.3 : selectedService!.price;
-                          return <button key={option} type="button" onClick={() => setPaymentOption(option)} className={`rounded-xl border p-3 text-left text-sm ${paymentOption === option ? "border-[#806a40] bg-white" : "border-[#dcd5c8]"}`}><span className="block font-semibold">{option === "deposit" ? "Pay 30% deposit" : "Pay in full"}</span><span>R{amount.toFixed(2)}</span></button>;
-                        })}
-                      </div>
+                    <div className="w-full">
+                      <p className="font-semibold">Secure your booking</p>
+
+                      <p className="mt-1 text-sm leading-6 text-[#70695f]">
+                        A minimum {Math.round(MINIMUM_DEPOSIT_PERCENTAGE * 100)}% deposit is required to
+                        confirm your appointment. You can also pay in full
+                        now if you prefer. Payments are handled securely
+                        by Paystack.
+                      </p>
+
+                      {selectedService && (
+                        <div className="mt-4 space-y-2">
+                          <label
+                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-4 transition ${
+                              !payFull
+                                ? "border-[#806a40] bg-white ring-2 ring-[#806a40]/15"
+                                : "border-[#dcd5c8] bg-white/60"
+                            }`}
+                          >
+                            <span className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                name="payment-option"
+                                checked={!payFull}
+                                onChange={() => setPayFull(false)}
+                                className="h-4 w-4 accent-[#806a40]"
+                              />
+                              <span>
+                                <span className="block font-medium">
+                                  Pay {Math.round(MINIMUM_DEPOSIT_PERCENTAGE * 100)}% deposit now
+                                </span>
+                                <span className="block text-xs text-[#88827a]">
+                                  Balance of{" "}
+                                  {formatRand(
+                                    roundCurrency(
+                                      selectedService.price -
+                                        getDepositAmount(selectedService.price)
+                                    )
+                                  )}{" "}
+                                  due at the shop
+                                </span>
+                              </span>
+                            </span>
+
+                            <span className="font-semibold text-[#806a40]">
+                              {formatRand(getDepositAmount(selectedService.price))}
+                            </span>
+                          </label>
+
+                          <label
+                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-4 transition ${
+                              payFull
+                                ? "border-[#806a40] bg-white ring-2 ring-[#806a40]/15"
+                                : "border-[#dcd5c8] bg-white/60"
+                            }`}
+                          >
+                            <span className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                name="payment-option"
+                                checked={payFull}
+                                onChange={() => setPayFull(true)}
+                                className="h-4 w-4 accent-[#806a40]"
+                              />
+                              <span>
+                                <span className="block font-medium">
+                                  Pay in full now
+                                </span>
+                                <span className="block text-xs text-[#88827a]">
+                                  Nothing more to pay at the shop
+                                </span>
+                              </span>
+                            </span>
+
+                            <span className="font-semibold text-[#806a40]">
+                              {formatRand(selectedService.price)}
+                            </span>
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1512,15 +1538,26 @@ function BookingPageInner() {
                   {submitting ? (
                     <>
                       <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      Confirming booking...
+                      Redirecting to payment...
                     </>
                   ) : (
                     <>
-                      Continue to Paystack
-                      <Check className="h-5 w-5" />
+                      {selectedService
+                        ? `Pay ${formatRand(
+                            payFull
+                              ? selectedService.price
+                              : getDepositAmount(selectedService.price)
+                          )} with Paystack`
+                        : "Continue to payment"}
+                      <CreditCard className="h-5 w-5" />
                     </>
                   )}
                 </button>
+
+                <p className="mt-3 text-center text-xs text-[#918a81]">
+                  You&apos;ll be redirected to Paystack&apos;s secure checkout
+                  to complete payment.
+                </p>
               </div>
             )}
           </section>
@@ -1606,15 +1643,14 @@ function BookingPageInner() {
                           Opening hours
                         </p>
 
-                        <p className="mt-1 text-sm leading-6 text-[#77716a]">
-                          Wednesday – Sunday
-                          <br />
-                          10:00 – 17:00
-                        </p>
-
-                        <p className="mt-2 text-xs text-[#969087]">
-                          Monday and Tuesday closed
-                        </p>
+                        <div className="mt-1 space-y-0.5 text-sm leading-6 text-[#77716a]">
+                          {schedule.map((day) => (
+                            <p key={day.day_of_week}>
+                              {getDayName(day.day_of_week)}:{" "}
+                              {formatDaySummary(day)}
+                            </p>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1639,4 +1675,3 @@ function BookingPageInner() {
     </main>
   );
 }
-

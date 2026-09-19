@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { sendBookingConfirmation } from "@/lib/server/email";
 import { callSupabaseRpc } from "@/lib/server/supabase";
 
 export const runtime = "nodejs";
@@ -22,17 +21,13 @@ async function verifyAndConfirm(reference: string) {
   });
   const booking = rows[0];
   if (!booking) throw new Error("Booking confirmation failed.");
-  if (booking.customer_email && !booking.confirmation_sent) {
-    const sent = await sendBookingConfirmation(booking as never);
-    if (sent) await callSupabaseRpc("mark_booking_confirmation_sent", { p_booking_id: booking.booking_id });
-  }
   return booking;
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const reference = url.searchParams.get("reference");
-  const bookingUrl = new URL("/booking", url.origin);
+  const bookingUrl = new URL("/booking/confirmed", url.origin);
   if (!reference) {
     bookingUrl.searchParams.set("payment", "failed");
     return NextResponse.redirect(bookingUrl);
@@ -47,5 +42,4 @@ export async function GET(request: Request) {
   }
   return NextResponse.redirect(bookingUrl);
 }
-
 

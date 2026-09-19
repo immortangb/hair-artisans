@@ -74,5 +74,3 @@ export default function RecentWork() {
     </section>
   );
 }
-
-

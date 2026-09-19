@@ -1,12 +1,12 @@
 // ============================================================
-// HAIR ARTISAN'S BOOKING CONFIGURATION
+// HAIR ARTISANS BARBERSHOP BOOKING CONFIGURATION
 // ============================================================
 //
-// Central source of truth for business hours and booking rules.
-//
-// Monday + Tuesday = CLOSED
-// Wednesday - Sunday = 10:00 - 17:00
-// Booking slots = 30 minutes
+// Central source of truth for booking rules that are NOT stored
+// in the database. Business hours + lunch break are now stored
+// in the `business_hours` table (see lib/booking/schedule.ts)
+// so the shop owner can edit them from Admin -> Hours without a
+// code change.
 //
 // ============================================================
 
@@ -18,48 +18,10 @@ export const BOOKING_INTERVAL_MINUTES = 30;
 
 export const BOOKING_WINDOW_DAYS = 60;
 
-export type BusinessHours = {
-  open: string;
-  close: string;
-};
-
-export const BUSINESS_HOURS: Record<number, BusinessHours | null> = {
-  0: {
-    // Sunday
-    open: "10:00",
-    close: "17:00",
-  },
-
-  1: null, // Monday - CLOSED
-
-  2: null, // Tuesday - CLOSED
-
-  3: {
-    // Wednesday
-    open: "10:00",
-    close: "17:00",
-  },
-
-  4: {
-    // Thursday
-    open: "10:00",
-    close: "17:00",
-  },
-
-  5: {
-    // Friday
-    open: "10:00",
-    close: "17:00",
-  },
-
-  6: {
-    // Saturday
-    open: "10:00",
-    close: "17:00",
-  },
-};
-
-export const LUNCH_BREAK = { start: "12:00", end: "12:30" };
+// A client must pay at least this percentage of the service price
+// as a deposit to confirm a booking. They can also choose to pay
+// the full price up front instead.
+export const MINIMUM_DEPOSIT_PERCENTAGE = 0.3;
 
 // ============================================================
 // TIME HELPERS
@@ -106,36 +68,6 @@ export function getDayOfWeek(dateString: string): number {
   return date.getDay();
 }
 
-export function isClosedDay(dateString: string): boolean {
-  if (!dateString) {
-    return true;
-  }
-
-  const day = getDayOfWeek(dateString);
-
-  return BUSINESS_HOURS[day] === null;
-}
-
-export function isBookableDate(dateString: string): boolean {
-  if (!dateString) {
-    return false;
-  }
-
-  return !isClosedDay(dateString);
-}
-
-export function getBusinessHours(
-  dateString: string,
-): BusinessHours | null {
-  if (!dateString) {
-    return null;
-  }
-
-  const day = getDayOfWeek(dateString);
-
-  return BUSINESS_HOURS[day] ?? null;
-}
-
 // ============================================================
 // SOUTH AFRICAN DATE
 // ============================================================
@@ -179,104 +111,16 @@ export function getDateOffset(
 }
 
 // ============================================================
-// AVAILABLE TIMES
+// MONEY HELPERS
 // ============================================================
 
-export function getAvailableTimesForService(
-  dateString: string,
-  durationMinutes: number,
-  bookedTimes: Array<{
-    start_time: string;
-    end_time: string;
-  }>,
-): string[] {
-  if (!dateString || durationMinutes <= 0) {
-    return [];
-  }
-
-  const hours = getBusinessHours(dateString);
-
-  if (!hours) {
-    return [];
-  }
-
-  const openingMinutes = timeToMinutes(hours.open);
-  const closingMinutes = timeToMinutes(hours.close);
-  const lunchStart = timeToMinutes(LUNCH_BREAK.start);
-  const lunchEnd = timeToMinutes(LUNCH_BREAK.end);
-
-  const availableTimes: string[] = [];
-
-  for (
-    let start = openingMinutes;
-    start + durationMinutes <= closingMinutes;
-    start += BOOKING_INTERVAL_MINUTES
-  ) {
-    const end = start + durationMinutes;
-
-    const overlapsExistingBooking = bookedTimes.some((booking) => {
-      const existingStart = timeToMinutes(booking.start_time);
-      const existingEnd = timeToMinutes(booking.end_time);
-
-      return (
-        start < existingEnd &&
-        end > existingStart
-      );
-    });
-
-    const overlapsLunch = start < lunchEnd && end > lunchStart;
-    if (!overlapsExistingBooking && !overlapsLunch) {
-      availableTimes.push(minutesToTime(start));
-    }
-  }
-
-  return availableTimes;
+// Rounds to the nearest cent, the same way the database does,
+// so the amount shown to the client always matches what gets
+// charged.
+export function roundCurrency(amount: number): number {
+  return Math.round(amount * 100) / 100;
 }
 
-// ============================================================
-// CHECK WHETHER A TIME IS STILL AVAILABLE
-// ============================================================
-
-export function isTimeStillAvailable(
-  dateString: string,
-  startTime: string,
-  durationMinutes: number,
-  bookedTimes: Array<{
-    start_time: string;
-    end_time: string;
-  }>,
-): boolean {
-  if (!dateString || !startTime || durationMinutes <= 0) {
-    return false;
-  }
-
-  const hours = getBusinessHours(dateString);
-
-  if (!hours) {
-    return false;
-  }
-
-  const start = timeToMinutes(startTime);
-  const end = start + durationMinutes;
-
-  const opening = timeToMinutes(hours.open);
-  const closing = timeToMinutes(hours.close);
-
-  if (start < opening || end > closing) {
-    return false;
-  }
-
-  if (start < timeToMinutes(LUNCH_BREAK.end) && end > timeToMinutes(LUNCH_BREAK.start)) return false;
-
-  return !bookedTimes.some((booking) => {
-    const existingStart = timeToMinutes(booking.start_time);
-    const existingEnd = timeToMinutes(booking.end_time);
-
-    return (
-      start < existingEnd &&
-      end > existingStart
-    );
-  });
+export function getDepositAmount(servicePrice: number): number {
+  return roundCurrency(servicePrice * MINIMUM_DEPOSIT_PERCENTAGE);
 }
-
-

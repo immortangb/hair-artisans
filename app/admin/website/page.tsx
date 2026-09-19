@@ -170,6 +170,12 @@ export default function WebsiteAdminPage() {
               Dashboard
             </button>
             <button
+              onClick={() => router.push("/admin/hours")}
+              className="rounded-xl border bg-white px-4 py-3 text-sm font-medium"
+            >
+              Hours
+            </button>
+            <button
               onClick={() => router.push("/")}
               className="rounded-xl border bg-white px-4 py-3 text-sm font-medium"
             >
@@ -247,5 +253,3 @@ export default function WebsiteAdminPage() {
     </main>
   );
 }
-
-

@@ -440,6 +440,13 @@ export default function CustomersPage() {
               Customers
             </Link>
 
+            <Link
+              href="/admin/hours"
+              className="rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Hours
+            </Link>
+
             <button
               onClick={logout}
               className="ml-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-400 transition hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
@@ -967,5 +974,3 @@ export default function CustomersPage() {
     </main>
   );
 }
-
-

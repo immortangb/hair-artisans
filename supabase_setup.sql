@@ -151,6 +151,35 @@ values ('hero_image_url', '/images/hero.jpg')
 on conflict (key) do nothing;
 
 -- ============================================================
+-- BUSINESS HOURS (editable from Admin -> Hours)
+-- ============================================================
+create table if not exists public.business_hours (
+  day_of_week integer primary key
+);
+
+alter table public.business_hours add column if not exists is_open boolean not null default true;
+alter table public.business_hours add column if not exists open_time time;
+alter table public.business_hours add column if not exists close_time time;
+alter table public.business_hours add column if not exists break_start time;
+alter table public.business_hours add column if not exists break_end time;
+alter table public.business_hours add column if not exists updated_at timestamptz not null default now();
+
+alter table public.business_hours drop constraint if exists business_hours_day_range;
+alter table public.business_hours add constraint business_hours_day_range check (day_of_week between 0 and 6);
+
+insert into public.business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end)
+select * from (values
+  (0, true,  time '10:00', time '17:00', time '12:00', time '12:30'), -- Sunday
+  (1, false, null,          null,          null,          null),        -- Monday - closed
+  (2, false, null,          null,          null,          null),        -- Tuesday - closed
+  (3, true,  time '10:00', time '17:00', time '12:00', time '12:30'), -- Wednesday
+  (4, true,  time '10:00', time '17:00', time '12:00', time '12:30'), -- Thursday
+  (5, true,  time '10:00', time '17:00', time '12:00', time '12:30'), -- Friday
+  (6, true,  time '10:00', time '17:00', time '12:00', time '12:30')  -- Saturday
+) as seed(day_of_week, is_open, open_time, close_time, break_start, break_end)
+where not exists (select 1 from public.business_hours);
+
+-- ============================================================
 -- ADMIN CHECK FUNCTION
 -- ============================================================
 create or replace function public.is_admin()
@@ -185,7 +214,13 @@ as $$
   select b.start_time, b.end_time
   from public.bookings b
   where b.appointment_date = p_appointment_date
-    and lower(b.status::text) in ('pending', 'confirmed')
+    and (
+      lower(b.status::text) = 'confirmed'
+      or (
+        lower(b.status::text) = 'pending'
+        and b.created_at > now() - interval '30 minutes'
+      )
+    )
   order by b.start_time;
 $$;
 
@@ -193,9 +228,107 @@ revoke all on function public.get_booked_times(date) from public;
 grant execute on function public.get_booked_times(date) to anon, authenticated;
 
 -- ============================================================
--- FREE PUBLIC BOOKING FUNCTION
+-- ADMIN: RESCHEDULE AN EXISTING BOOKING (edit date/time)
+-- ============================================================
+drop function if exists public.admin_reschedule_booking(bigint, date, time without time zone);
+
+create or replace function public.admin_reschedule_booking(
+  p_booking_id bigint,
+  p_new_date date,
+  p_new_start_time time
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_catalog
+as $$
+declare
+  v_duration integer;
+  v_end_time time;
+  v_day_of_week integer;
+  v_hours public.business_hours%rowtype;
+begin
+  if not public.is_admin() then
+    raise exception 'Not authorized.' using errcode = '42501';
+  end if;
+
+  if p_new_date is null or p_new_start_time is null then
+    raise exception 'Please select a date and time.' using errcode = '22023';
+  end if;
+
+  select s.duration_minutes
+    into v_duration
+  from public.bookings b
+  join public.services s on s.id = b.service_id
+  where b.id = p_booking_id;
+
+  if not found then
+    raise exception 'Booking not found.' using errcode = '22023';
+  end if;
+
+  v_day_of_week := extract(dow from p_new_date)::integer;
+
+  select * into v_hours
+  from public.business_hours
+  where day_of_week = v_day_of_week;
+
+  if not found or v_hours.is_open is not true or v_hours.open_time is null or v_hours.close_time is null then
+    raise exception 'The shop is closed on the selected day.' using errcode = '22023';
+  end if;
+
+  if p_new_start_time < v_hours.open_time or p_new_start_time >= v_hours.close_time then
+    raise exception 'The selected time is outside business hours.' using errcode = '22023';
+  end if;
+
+  v_end_time := p_new_start_time + make_interval(mins => v_duration);
+
+  if v_end_time > v_hours.close_time then
+    raise exception 'That service cannot finish before closing time.' using errcode = '22023';
+  end if;
+
+  if v_hours.break_start is not null and v_hours.break_end is not null
+     and p_new_start_time < v_hours.break_end and v_end_time > v_hours.break_start
+  then
+    raise exception 'That time overlaps the lunch break.' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('hair-artisans-booking-' || p_new_date::text));
+
+  if exists (
+    select 1
+    from public.bookings b
+    where b.id <> p_booking_id
+      and b.appointment_date = p_new_date
+      and (
+        lower(b.status::text) = 'confirmed'
+        or (
+          lower(b.status::text) = 'pending'
+          and b.created_at > now() - interval '30 minutes'
+        )
+      )
+      and b.start_time < v_end_time
+      and b.end_time > p_new_start_time
+  ) then
+    raise exception 'That time is no longer available.' using errcode = '23P01';
+  end if;
+
+  update public.bookings
+  set appointment_date = p_new_date,
+      start_time = p_new_start_time,
+      end_time = v_end_time,
+      updated_at = now()
+  where id = p_booking_id;
+end;
+$$;
+
+revoke all on function public.admin_reschedule_booking(bigint, date, time without time zone) from public;
+grant execute on function public.admin_reschedule_booking(bigint, date, time without time zone) to authenticated;
+
+-- ============================================================
+-- FREE PUBLIC BOOKING FUNCTION (deposit + dynamic hours aware)
 -- ============================================================
 drop function if exists public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone);
+drop function if exists public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone,boolean);
 
 create or replace function public.create_hair_artisans_booking(
   p_full_name text,
@@ -204,7 +337,8 @@ create or replace function public.create_hair_artisans_booking(
   p_notes text,
   p_service_id bigint,
   p_appointment_date date,
-  p_start_time time
+  p_start_time time,
+  p_pay_full boolean default false
 )
 returns bigint
 language plpgsql
@@ -218,6 +352,10 @@ declare
   v_end_time time;
   v_booking_id bigint;
   v_today date;
+  v_day_of_week integer;
+  v_hours public.business_hours%rowtype;
+  v_deposit numeric(10,2);
+  v_balance numeric(10,2);
 begin
   p_full_name := btrim(coalesce(p_full_name, ''));
   p_phone := btrim(coalesce(p_phone, ''));
@@ -230,6 +368,10 @@ begin
 
   if length(regexp_replace(p_phone, '[^0-9+]', '', 'g')) < 7 then
     raise exception 'Please enter a valid phone number.' using errcode = '22023';
+  end if;
+
+  if p_email is null then
+    raise exception 'Please enter a valid email address.' using errcode = '22023';
   end if;
 
   if p_appointment_date is null or p_start_time is null then
@@ -246,11 +388,17 @@ begin
     raise exception 'The selected date is outside the booking window.' using errcode = '22023';
   end if;
 
-  if extract(dow from p_appointment_date) in (1, 2) then
-    raise exception 'The shop is closed on Monday and Tuesday.' using errcode = '22023';
+  v_day_of_week := extract(dow from p_appointment_date)::integer;
+
+  select * into v_hours
+  from public.business_hours
+  where day_of_week = v_day_of_week;
+
+  if not found or v_hours.is_open is not true or v_hours.open_time is null or v_hours.close_time is null then
+    raise exception 'The shop is closed on the selected day.' using errcode = '22023';
   end if;
 
-  if p_start_time < time '10:00' or p_start_time >= time '17:00' then
+  if p_start_time < v_hours.open_time or p_start_time >= v_hours.close_time then
     raise exception 'The selected time is outside business hours.' using errcode = '22023';
   end if;
 
@@ -275,8 +423,14 @@ begin
 
   v_end_time := p_start_time + make_interval(mins => v_duration);
 
-  if v_end_time > time '17:00' then
+  if v_end_time > v_hours.close_time then
     raise exception 'That service cannot finish before closing time.' using errcode = '22023';
+  end if;
+
+  if v_hours.break_start is not null and v_hours.break_end is not null
+     and p_start_time < v_hours.break_end and v_end_time > v_hours.break_start
+  then
+    raise exception 'That time overlaps the lunch break. Please choose another time.' using errcode = '22023';
   end if;
 
   -- Prevent two customers from taking an overlapping slot at the same time.
@@ -286,12 +440,26 @@ begin
     select 1
     from public.bookings b
     where b.appointment_date = p_appointment_date
-      and lower(b.status::text) in ('pending', 'confirmed')
+      and (
+        lower(b.status::text) = 'confirmed'
+        or (
+          lower(b.status::text) = 'pending'
+          and b.created_at > now() - interval '30 minutes'
+        )
+      )
       and b.start_time < v_end_time
       and b.end_time > p_start_time
   ) then
     raise exception 'That time is no longer available.' using errcode = '23P01';
   end if;
+
+  if p_pay_full then
+    v_deposit := v_service_price;
+  else
+    v_deposit := round(v_service_price * 0.30, 2);
+  end if;
+
+  v_balance := v_service_price - v_deposit;
 
   select c.id
     into v_customer_id
@@ -313,6 +481,8 @@ begin
     where id = v_customer_id;
   end if;
 
+  -- Starts "pending" until app/api/payments/verify or
+  -- app/api/payments/webhook confirms the Paystack charge.
   insert into public.bookings(
     customer_id,
     service_id,
@@ -320,6 +490,7 @@ begin
     start_time,
     end_time,
     status,
+    payment_status,
     service_price,
     deposit_amount,
     balance_amount,
@@ -333,10 +504,11 @@ begin
     p_appointment_date,
     p_start_time,
     v_end_time,
-    'confirmed',
+    'pending',
+    'pending',
     v_service_price,
-    0,
-    coalesce(v_service_price, 0),
+    v_deposit,
+    v_balance,
     p_notes,
     now(),
     now()
@@ -347,8 +519,8 @@ begin
 end;
 $$;
 
-revoke all on function public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone) from public;
-grant execute on function public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone) to anon, authenticated;
+revoke all on function public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone,boolean) from public;
+grant execute on function public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone,boolean) to anon, authenticated;
 
 -- ============================================================
 -- RLS POLICIES
@@ -359,6 +531,7 @@ alter table public.services enable row level security;
 alter table public.bookings enable row level security;
 alter table public.gallery_items enable row level security;
 alter table public.site_settings enable row level security;
+alter table public.business_hours enable row level security;
 
 drop policy if exists admin_users_self_select on public.admin_users;
 create policy admin_users_self_select on public.admin_users
@@ -394,6 +567,17 @@ using (key = 'hero_image_url');
 
 drop policy if exists site_settings_admin_all on public.site_settings;
 create policy site_settings_admin_all on public.site_settings
+for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists business_hours_public_read on public.business_hours;
+create policy business_hours_public_read on public.business_hours
+for select to anon, authenticated
+using (true);
+
+drop policy if exists business_hours_admin_all on public.business_hours;
+create policy business_hours_admin_all on public.business_hours
 for all to authenticated
 using (public.is_admin())
 with check (public.is_admin());
@@ -460,9 +644,11 @@ grant usage on schema public to anon, authenticated;
 grant select on public.services to anon, authenticated;
 grant select on public.gallery_items to anon, authenticated;
 grant select on public.site_settings to anon, authenticated;
+grant select on public.business_hours to anon, authenticated;
 grant select, insert, update, delete on public.services to authenticated;
 grant select, insert, update, delete on public.gallery_items to authenticated;
 grant select, insert, update, delete on public.site_settings to authenticated;
+grant select, insert, update, delete on public.business_hours to authenticated;
 grant select, insert, update, delete on public.customers to authenticated;
 grant select, insert, update, delete on public.bookings to authenticated;
 grant select on public.admin_users to authenticated;
@@ -472,7 +658,7 @@ grant usage, select on all sequences in schema public to authenticated;
 -- ADMIN USER
 -- ============================================================
 -- Run this separately after replacing the email with the email of your
--- Supabase Auth account used for the Hair-Artisan's Barbershop admin login:
+-- Supabase Auth account used for the Hair Artisans Barbershop admin login:
 --
 -- insert into public.admin_users(user_id)
 -- select id from auth.users where email = 'YOUR-ADMIN-EMAIL'
