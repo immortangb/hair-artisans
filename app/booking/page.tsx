@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import RecentWork from "@/components/home/RecentWork";
 import { getServiceImage } from "@/lib/booking/service-images";
 import {
   BUSINESS_NAME,
@@ -1667,10 +1666,6 @@ function BookingPageInner() {
             </div>
           </aside>
         </div>
-      </div>
-
-      <div className="mt-16">
-        <RecentWork />
       </div>
     </main>
   );
