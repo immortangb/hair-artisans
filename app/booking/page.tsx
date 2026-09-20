@@ -254,6 +254,12 @@ function BookingPageInner() {
 
   const [schedule, setSchedule] = useState<WeekSchedule>(FALLBACK_SCHEDULE);
 
+  const [bookingsPaused, setBookingsPaused] = useState(false);
+  const [pausedMessage, setPausedMessage] = useState(
+    "Online bookings are temporarily paused. Please check back soon."
+  );
+  const [checkingPauseStatus, setCheckingPauseStatus] = useState(true);
+
   const [step, setStep] = useState<BookingStep>(1);
 
   const [selectedServiceId, setSelectedServiceId] =
@@ -347,6 +353,39 @@ function BookingPageInner() {
       if (!cancelled) {
         setSchedule(loadedSchedule);
       }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", ["bookings_paused", "bookings_paused_message"]);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("Could not check booking availability:", error);
+        setCheckingPauseStatus(false);
+        return;
+      }
+
+      const paused =
+        data?.find((row) => row.key === "bookings_paused")?.value === "true";
+      const message = data?.find(
+        (row) => row.key === "bookings_paused_message"
+      )?.value;
+
+      setBookingsPaused(paused);
+      if (message) setPausedMessage(message);
+      setCheckingPauseStatus(false);
     })();
 
     return () => {
@@ -617,6 +656,64 @@ function BookingPageInner() {
       setStep(4);
     }
   };
+
+  if (checkingPauseStatus) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f0]">
+        <p className="text-sm text-[#70695f]">Loading booking page...</p>
+      </main>
+    );
+  }
+
+  if (bookingsPaused) {
+    return (
+      <main className="min-h-screen bg-[#f7f5f0] text-[#1c1b19]">
+        <header className="border-b border-[#ded9cf] bg-[#f7f5f0]">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
+            <Link href="/" className="text-lg font-semibold tracking-tight">
+              {BUSINESS_NAME}
+            </Link>
+            <Link
+              href="/"
+              className="text-sm font-medium text-[#66615a] transition hover:text-[#1c1b19]"
+            >
+              Back to home
+            </Link>
+          </div>
+        </header>
+
+        <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-5 py-16 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f7f3e9]">
+            <Clock3 className="h-7 w-7 text-[#806a40]" />
+          </div>
+
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Bookings are paused
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-md leading-7 text-[#6f6961]">
+            {pausedMessage}
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#1c1b19] px-6 font-medium text-white transition hover:bg-[#34312d]"
+            >
+              Back to home
+            </Link>
+
+            <Link
+              href="/booking/status"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d5d0c7] bg-white px-6 font-medium text-[#1c1b19] transition hover:bg-[#f5f2ec]"
+            >
+              Check an existing booking
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f5f0] text-[#1c1b19]">

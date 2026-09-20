@@ -13,6 +13,11 @@ export default function WebsiteAdminPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [heroUrl, setHeroUrl] = useState(DEFAULT_HERO);
   const [heroPath, setHeroPath] = useState<string | null>(null);
+  const [bookingsPaused, setBookingsPaused] = useState(false);
+  const [pausedMessage, setPausedMessage] = useState(
+    "Online bookings are temporarily paused. Please check back soon."
+  );
+  const [savingPause, setSavingPause] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -57,6 +62,21 @@ export default function WebsiteAdminPage() {
 
     if (urlSetting?.value) setHeroUrl(urlSetting.value);
     if (pathSetting?.value) setHeroPath(pathSetting.value);
+
+    const { data: pauseSettings } = await supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["bookings_paused", "bookings_paused_message"]);
+
+    const pausedValue = pauseSettings?.find(
+      (row) => row.key === "bookings_paused"
+    )?.value;
+    const pausedMessageValue = pauseSettings?.find(
+      (row) => row.key === "bookings_paused_message"
+    )?.value;
+
+    if (pausedValue) setBookingsPaused(pausedValue === "true");
+    if (pausedMessageValue) setPausedMessage(pausedMessageValue);
   }
 
   async function saveSetting(key: string, value: string) {
@@ -68,6 +88,49 @@ export default function WebsiteAdminPage() {
       );
 
     if (saveError) throw saveError;
+  }
+
+  async function togglePausedBookings(newValue: boolean) {
+    setSavingPause(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await saveSetting("bookings_paused", newValue ? "true" : "false");
+      setBookingsPaused(newValue);
+      setMessage(
+        newValue
+          ? "Bookings are now paused - customers can no longer book online."
+          : "Bookings are open again."
+      );
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not update booking availability."
+      );
+    } finally {
+      setSavingPause(false);
+    }
+  }
+
+  async function savePausedMessage() {
+    setSavingPause(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await saveSetting("bookings_paused_message", pausedMessage.trim());
+      setMessage("Message saved.");
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error ? err.message : "Could not save the message."
+      );
+    } finally {
+      setSavingPause(false);
+    }
   }
 
   async function saveHero() {
@@ -203,6 +266,72 @@ export default function WebsiteAdminPage() {
         )}
 
         <section className="rounded-3xl border bg-white p-6 shadow-sm md:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">Booking availability</h2>
+              <p className="mt-1 text-sm text-neutral-500">
+                Pause online bookings while you set things up (e.g. Paystack
+                is still in test mode). Customers won&apos;t be able to
+                start a new booking until you resume - this is enforced on
+                the server, not just hidden in the app.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void togglePausedBookings(!bookingsPaused)}
+              disabled={savingPause}
+              className={`shrink-0 rounded-xl px-5 py-3 font-semibold text-white disabled:opacity-50 ${
+                bookingsPaused
+                  ? "bg-green-700 hover:bg-green-800"
+                  : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              {savingPause
+                ? "Saving..."
+                : bookingsPaused
+                  ? "Resume bookings"
+                  : "Pause bookings"}
+            </button>
+          </div>
+
+          <div
+            className={`mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${
+              bookingsPaused
+                ? "bg-red-50 text-red-700"
+                : "bg-green-50 text-green-700"
+            }`}
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${
+                bookingsPaused ? "bg-red-600" : "bg-green-600"
+              }`}
+            />
+            {bookingsPaused ? "Bookings are currently paused" : "Bookings are currently open"}
+          </div>
+
+          <div className="mt-6">
+            <label className="mb-2 block text-sm font-medium">
+              Message shown to customers while paused
+            </label>
+            <textarea
+              value={pausedMessage}
+              onChange={(event) => setPausedMessage(event.target.value)}
+              rows={2}
+              className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-black"
+            />
+            <button
+              type="button"
+              onClick={() => void savePausedMessage()}
+              disabled={savingPause}
+              className="mt-3 rounded-xl border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+            >
+              Save message
+            </button>
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-3xl border bg-white p-6 shadow-sm md:p-8">
           <h2 className="text-xl font-semibold">Homepage main picture</h2>
           <p className="mb-6 mt-1 text-sm text-neutral-500">
             This is the circular image at the top of the customer homepage.
@@ -245,8 +374,8 @@ export default function WebsiteAdminPage() {
           <h2 className="text-xl font-semibold">Other website pictures</h2>
           <p className="mt-2 text-sm leading-6 text-neutral-600">
             Service-card pictures are managed from <strong>Admin → Services</strong>.
-            Customer work photos are managed from <strong>Admin → Our Work</strong>.
-            Our Work also appears on the booking page.
+            Customer work photos are managed from <strong>Admin → Our Work</strong>
+            and appear on the homepage.
           </p>
         </section>
       </div>
