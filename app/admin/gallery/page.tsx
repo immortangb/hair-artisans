@@ -243,7 +243,7 @@ export default function GalleryAdminPage() {
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-widest text-neutral-500">
-              Hair-Artisans Barbershop
+              Hair Artisans Barbershop
             </p>
 
             <h1 className="mt-1 text-3xl font-semibold">Recent Work</h1>
@@ -398,7 +398,7 @@ export default function GalleryAdminPage() {
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     rows={3}
-                    placeholder="A recent Hair-Artisans Barbershop look..."
+                    placeholder="A recent Hair Artisans Barbershop look..."
                     className="w-full resize-none rounded-xl border px-4 py-3 outline-none focus:border-black"
                   />
                 </div>

@@ -65,7 +65,10 @@ export async function initializePaystackTransaction(
       currency: "ZAR",
       reference: params.reference,
       callback_url: params.callbackUrl,
-      metadata: params.metadata ?? {},
+      // Paystack documents metadata as a stringified JSON object. Sending it
+      // as a JSON string also makes the value consistent between initialize
+      // and verify responses across Paystack environments.
+      metadata: params.metadata ? JSON.stringify(params.metadata) : undefined,
     }),
   });
 
@@ -122,6 +125,23 @@ export async function verifyPaystackTransaction(
 
   const data = body.data;
 
+  // Paystack may return metadata as an object or as a JSON string depending
+  // on the API response/environment. Normalize it here so payment
+  // confirmation does not depend on that representation.
+  let normalizedMetadata: Record<string, unknown> | null = null;
+  if (data?.metadata && typeof data.metadata === "object") {
+    normalizedMetadata = data.metadata as Record<string, unknown>;
+  } else if (typeof data?.metadata === "string" && data.metadata.trim()) {
+    try {
+      const parsed = JSON.parse(data.metadata);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        normalizedMetadata = parsed as Record<string, unknown>;
+      }
+    } catch {
+      normalizedMetadata = null;
+    }
+  }
+
   return {
     success: data?.status === "success",
     status: data?.status ?? "unknown",
@@ -129,7 +149,7 @@ export async function verifyPaystackTransaction(
     currency: data?.currency ?? "ZAR",
     reference: data?.reference ?? reference,
     paidAt: data?.paid_at ?? null,
-    metadata: data?.metadata ?? null,
+    metadata: normalizedMetadata,
     gatewayResponse: data?.gateway_response ?? null,
   };
 }

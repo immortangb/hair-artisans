@@ -8,6 +8,7 @@ import {
   Check,
   Clock,
   Scissors,
+  Search,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -107,13 +108,19 @@ export default function Home() {
           </span>
 
           <span className="text-xl font-bold tracking-tight">
-            Hair-Artisans Barbershop
+            Hair Artisans Barbershop
           </span>
         </Link>
 
         <div className="flex items-center gap-2">
           <Link href="#our-work" className="hidden rounded-full px-4 py-2.5 text-sm font-semibold sm:block">
             Our Work
+          </Link>
+          <Link
+            href="/booking/status"
+            className="hidden rounded-full px-4 py-2.5 text-sm font-semibold sm:block"
+          >
+            Check Booking
           </Link>
           <Link
             href="/booking"
@@ -135,7 +142,7 @@ export default function Home() {
           <div className="mx-auto h-48 w-48 overflow-hidden rounded-full border-4 border-white shadow-2xl sm:h-56 sm:w-56">
             <img
               src={heroImage}
-              alt="Hair-Artisans Barbershop"
+              alt="Hair Artisans Barbershop"
               className="h-full w-full object-cover"
             />
           </div>
@@ -145,7 +152,7 @@ export default function Home() {
           </p>
 
           <h1 className="mt-3 text-5xl font-bold uppercase tracking-tight sm:text-7xl">
-            Hair-Artisans Barbershop
+            Hair Artisans Barbershop
           </h1>
 
           <div className="mt-5 flex items-center justify-center gap-4">
@@ -400,6 +407,40 @@ export default function Home() {
 
 
       {/* ======================================================
+          ALREADY BOOKED? CHECK STATUS
+      ====================================================== */}
+
+      <section className="border-t border-[#ded9d0] bg-[#faf9f6] px-6 py-16 text-center">
+
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#efe7d5]">
+          <Search className="h-6 w-6 text-[#806a40]" />
+        </div>
+
+        <h2 className="mt-5 text-2xl font-bold sm:text-3xl">
+          Already booked?
+        </h2>
+
+        <p className="mx-auto mt-3 max-w-md text-[#777168]">
+          Check your booking status
+        </p>
+
+        <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#8a847c]">
+          Enter your booking confirmation number to view your
+          appointment, payment status, amount paid and amount still due.
+        </p>
+
+        <Link
+          href="/booking/status"
+          className="mt-7 inline-flex items-center gap-2 rounded-full border border-[#d8d3c9] bg-white px-6 py-3 font-semibold transition hover:bg-[#eeeae2]"
+        >
+          Check Booking
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+
+      </section>
+
+
+      {/* ======================================================
           FINAL CTA
       ====================================================== */}
 
@@ -412,7 +453,7 @@ export default function Home() {
         </h2>
 
         <p className="mx-auto mt-3 max-w-lg text-[#777168]">
-          Booking is quick, simple and completely free.
+          Booking takes just a few minutes online.
         </p>
 
         <Link
@@ -437,13 +478,13 @@ export default function Home() {
           <Scissors className="h-4 w-4" />
 
           <span className="font-semibold text-[#1c1b19]">
-            Hair-Artisans Barbershop
+            Hair Artisans Barbershop
           </span>
 
         </div>
 
         <p className="mt-3">
-          © {new Date().getFullYear()} Hair-Artisans Barbershop. All rights reserved.
+          © {new Date().getFullYear()} Hair Artisans Barbershop. All rights reserved.
         </p>
 
       </footer>

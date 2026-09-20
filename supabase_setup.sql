@@ -75,6 +75,7 @@ create table if not exists public.bookings (
   deposit_amount numeric(10,2) not null default 0,
   balance_amount numeric(10,2) not null default 0,
   payment_reference text,
+  confirmation_number text,
   confirmation_sent boolean not null default false,
   payment_notification_sent boolean not null default false,
   reminder_sent boolean not null default false,
@@ -88,6 +89,8 @@ alter table public.bookings add column if not exists service_price numeric(10,2)
 alter table public.bookings add column if not exists deposit_amount numeric(10,2) not null default 0;
 alter table public.bookings add column if not exists balance_amount numeric(10,2) not null default 0;
 alter table public.bookings add column if not exists payment_reference text;
+alter table public.bookings add column if not exists confirmation_number text;
+create unique index if not exists bookings_confirmation_number_uidx on public.bookings(confirmation_number);
 alter table public.bookings add column if not exists confirmation_sent boolean not null default false;
 alter table public.bookings add column if not exists payment_notification_sent boolean not null default false;
 alter table public.bookings add column if not exists reminder_sent boolean not null default false;
@@ -514,6 +517,12 @@ begin
     now()
   )
   returning id into v_booking_id;
+
+  -- Assign a human-friendly confirmation number, e.g. HAB-20260919-000123,
+  -- based on today's date in South African local time and the booking id.
+  update public.bookings
+  set confirmation_number = 'HAB-' || to_char(v_today, 'YYYYMMDD') || '-' || lpad(v_booking_id::text, 6, '0')
+  where id = v_booking_id;
 
   return v_booking_id;
 end;

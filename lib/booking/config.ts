@@ -10,7 +10,7 @@
 //
 // ============================================================
 
-export const BUSINESS_NAME = "Hair-Artisans Barbershop";
+export const BUSINESS_NAME = "Hair Artisans Barbershop";
 
 export const BUSINESS_TIMEZONE = "Africa/Johannesburg";
 

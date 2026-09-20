@@ -5,19 +5,27 @@
 -- Safe to run more than once. Does NOT delete or change any of
 -- your existing bookings, customers, services or photos.
 --
+-- This is the ONLY script you need. It replaces and supersedes:
+--   supabase_booking_hours_migration.sql
+--   supabase_paystack_schedule_migration.sql
+--   supabase_hair_artisans_final_upgrade.sql
+-- (all deprecated - safe to delete from your project folder)
+--
 -- What this sets up:
 --   1. `business_hours` table - lets you edit opening days/times
 --      and the lunch break from Admin -> Hours, instead of them
 --      being hardcoded in the app.
---   2. Seeds it with Wed-Sun 10:00-17:00 and a 12:00-12:30 lunch
---      break every open day (only if the table is currently empty
---      - it will never overwrite hours you've already customised).
+--   2. `bookings.confirmation_number` - a human-friendly code like
+--      HAB-20260919-000123 that customers use on /booking/status
+--      to check their appointment, payment status, amount paid and
+--      amount still due.
 --   3. Rewrites create_hair_artisans_booking() so every booking:
 --        - reads open/closed days, hours and the lunch break from
 --          business_hours
 --        - takes a 30% minimum deposit (or the full price, if the
 --          client chooses to pay in full)
 --        - is created as "pending" until Paystack confirms payment
+--        - is assigned a confirmation_number
 --   4. Updates get_booked_times() so an abandoned, unpaid booking
 --      automatically frees its slot after 30 minutes instead of
 --      blocking it forever.
@@ -30,11 +38,11 @@
 -- ============================================================
 -- 1. BUSINESS HOURS TABLE
 -- ============================================================
--- Uses "create table if not exists" + "add column if not exists"
--- for every column (rather than relying on the CREATE TABLE's
--- column list) so this repairs itself even if a business_hours
--- table already existed in your project with different or missing
--- columns - it only ever adds what's missing, never drops data.
+-- Uses "add column if not exists" for every column (rather than
+-- relying on CREATE TABLE's column list) so this repairs itself
+-- even if a business_hours table already existed in your project
+-- with different or missing columns - it only ever adds what's
+-- missing, never drops data.
 create table if not exists public.business_hours (
   day_of_week integer primary key
 );
@@ -49,6 +57,17 @@ alter table public.business_hours add column if not exists updated_at timestampt
 alter table public.business_hours drop constraint if exists business_hours_day_range;
 alter table public.business_hours add constraint business_hours_day_range check (day_of_week between 0 and 6);
 
+-- Migrate an older "is_closed" column if one exists, before seeding.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'business_hours' and column_name = 'is_closed'
+  ) then
+    execute 'update public.business_hours set is_open = not is_closed where is_closed is not null';
+  end if;
+end $$;
+
 insert into public.business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end)
 select * from (values
   (0, true,  time '10:00', time '17:00', time '12:00', time '12:30'), -- Sunday
@@ -60,6 +79,12 @@ select * from (values
   (6, true,  time '10:00', time '17:00', time '12:00', time '12:30')  -- Saturday
 ) as seed(day_of_week, is_open, open_time, close_time, break_start, break_end)
 where not exists (select 1 from public.business_hours);
+
+-- Fill in the lunch break for any open day that doesn't have one yet
+-- (e.g. rows seeded by an older migration before lunch breaks existed).
+update public.business_hours
+set break_start = time '12:00', break_end = time '12:30'
+where is_open = true and (break_start is null or break_end is null);
 
 alter table public.business_hours enable row level security;
 
@@ -78,7 +103,20 @@ grant select on public.business_hours to anon, authenticated;
 grant select, insert, update, delete on public.business_hours to authenticated;
 
 -- ============================================================
--- 2. DEPOSIT-AWARE, SCHEDULE-AWARE PUBLIC BOOKING FUNCTION
+-- 2. BOOKING CONFIRMATION NUMBERS
+-- ============================================================
+alter table public.bookings add column if not exists confirmation_number text;
+
+-- Give any existing booking a stable confirmation number.
+update public.bookings
+set confirmation_number = 'HAB-' || to_char(coalesce(created_at, now()) at time zone 'Africa/Johannesburg', 'YYYYMMDD') || '-' || lpad(id::text, 6, '0')
+where confirmation_number is null or btrim(confirmation_number) = '';
+
+create unique index if not exists bookings_confirmation_number_uidx
+on public.bookings(confirmation_number);
+
+-- ============================================================
+-- 3. DEPOSIT-AWARE, SCHEDULE-AWARE PUBLIC BOOKING FUNCTION
 -- ============================================================
 drop function if exists public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone);
 drop function if exists public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone,boolean);
@@ -142,8 +180,6 @@ begin
     raise exception 'The selected date is outside the booking window.' using errcode = '22023';
   end if;
 
-  -- Look up that day's schedule from business_hours instead of a
-  -- hardcoded Mon/Tue-closed, 10:00-17:00 rule.
   v_day_of_week := extract(dow from p_appointment_date)::integer;
 
   select * into v_hours
@@ -277,6 +313,12 @@ begin
   )
   returning id into v_booking_id;
 
+  -- Assign a human-friendly confirmation number, e.g. HAB-20260919-000123,
+  -- based on today's date in South African local time and the booking id.
+  update public.bookings
+  set confirmation_number = 'HAB-' || to_char(v_today, 'YYYYMMDD') || '-' || lpad(v_booking_id::text, 6, '0')
+  where id = v_booking_id;
+
   return v_booking_id;
 end;
 $$;
@@ -285,7 +327,7 @@ revoke all on function public.create_hair_artisans_booking(text,text,text,text,b
 grant execute on function public.create_hair_artisans_booking(text,text,text,text,bigint,date,time without time zone,boolean) to anon, authenticated;
 
 -- ============================================================
--- 3. AVAILABILITY: IGNORE ABANDONED, UNPAID "PENDING" BOOKINGS
+-- 4. AVAILABILITY: IGNORE ABANDONED, UNPAID "PENDING" BOOKINGS
 -- ============================================================
 -- Once a booking has been pending for more than 30 minutes without
 -- being paid, it stops blocking the slot for other customers. Paid
@@ -316,7 +358,7 @@ revoke all on function public.get_booked_times(date) from public;
 grant execute on function public.get_booked_times(date) to anon, authenticated;
 
 -- ============================================================
--- 4. ADMIN: RESCHEDULE AN EXISTING BOOKING (edit date/time)
+-- 5. ADMIN: RESCHEDULE AN EXISTING BOOKING (edit date/time)
 -- ============================================================
 -- Only an admin (checked via public.is_admin()) can call this.
 -- Recomputes the end time from the service's duration and runs
@@ -419,6 +461,6 @@ revoke all on function public.admin_reschedule_booking(bigint, date, time withou
 grant execute on function public.admin_reschedule_booking(bigint, date, time without time zone) to authenticated;
 
 -- ============================================================
--- DONE. Reload your site - business hours, deposits, Paystack
--- and rescheduling are now all live.
+-- DONE. Reload your site - business hours, deposits, Paystack,
+-- confirmation numbers and rescheduling are now all live.
 -- ============================================================

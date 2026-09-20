@@ -62,20 +62,16 @@ export async function confirmBookingPaymentByReference(
     };
   }
 
-  const bookingId = Number(
+  // Paystack can return metadata in different representations. The payment
+  // reference is also stored on the booking, so use metadata first and fall
+  // back to the stored reference. This makes callback/webhook confirmation
+  // reliable even if Paystack returns empty/stringified metadata.
+  let bookingId = Number(
     (verification.metadata as Record<string, unknown> | null)?.booking_id,
   );
 
-  if (!Number.isFinite(bookingId) || bookingId <= 0) {
-    console.error("Paystack metadata missing booking_id:", verification.metadata);
-    return { ok: false, message: "This payment is not linked to a booking." };
-  }
-
   // 2. Load the booking + related customer/service info.
-  const { data: booking, error: bookingError } = await admin
-    .from("bookings")
-    .select(
-      `
+  const bookingSelect = `
         id,
         confirmation_number,
         appointment_date,
@@ -88,14 +84,55 @@ export async function confirmBookingPaymentByReference(
         payment_reference,
         customer:customers ( full_name, email ),
         service:services ( name )
-      `,
-    )
-    .eq("id", bookingId)
-    .maybeSingle();
+      `;
+
+  let booking: any = null;
+  let bookingError: any = null;
+
+  if (Number.isFinite(bookingId) && bookingId > 0) {
+    const result = await admin
+      .from("bookings")
+      .select(bookingSelect)
+      .eq("id", bookingId)
+      .maybeSingle();
+    booking = result.data;
+    bookingError = result.error;
+  }
+
+  if (!booking) {
+    const result = await admin
+      .from("bookings")
+      .select(bookingSelect)
+      .eq("payment_reference", reference)
+      .maybeSingle();
+    booking = result.data;
+    bookingError = result.error;
+    if (booking) bookingId = Number(booking.id);
+  }
 
   if (bookingError || !booking) {
-    console.error("Booking lookup failed:", bookingError);
-    return { ok: false, message: "We could not find that booking." };
+    console.error("Booking lookup failed:", bookingError, { reference, metadata: verification.metadata });
+    return { ok: false, message: "We could not find that booking for this payment." };
+  }
+
+  // Paystack's amount is returned in the currency's smallest unit. For ZAR,
+  // compare cents exactly after converting the database amount to cents.
+  if (verification.currency !== "ZAR") {
+    return { ok: false, message: "The payment currency does not match this booking." };
+  }
+
+  const expectedAmount = Number(booking.deposit_amount ?? 0);
+  const expectedCents = Math.round(expectedAmount * 100);
+  const paidCents = Math.round(Number(verification.amountRands) * 100);
+
+  if (!Number.isFinite(expectedCents) || expectedCents <= 0 || paidCents !== expectedCents) {
+    console.error(
+      `Amount mismatch for booking ${booking.id}: expected R${expectedAmount.toFixed(2)} (${expectedCents} cents), got R${verification.amountRands.toFixed(2)} (${paidCents} cents)`,
+    );
+    return {
+      ok: false,
+      message: "The amount paid does not match this booking. Please contact the shop.",
+    };
   }
 
   const customer = Array.isArray(booking.customer)
@@ -105,9 +142,8 @@ export async function confirmBookingPaymentByReference(
     ? booking.service[0]
     : booking.service;
 
-  // 3. Idempotency: if this booking was already confirmed (for
-  //    example the browser callback and the webhook both fired),
-  //    do not charge-check or update twice.
+  // Idempotency: if this booking was already confirmed (for example the
+  // browser callback and webhook both fired), return the existing result.
   if (
     booking.payment_status === "deposit_paid" ||
     booking.payment_status === "paid_full"
@@ -130,25 +166,10 @@ export async function confirmBookingPaymentByReference(
     };
   }
 
-  // 4. Sanity-check the amount Paystack actually received against
-  //    what we expected to charge for this booking (small rounding
-  //    tolerance for cent conversion).
-  const expectedAmount = Number(booking.deposit_amount ?? 0);
-
-  if (Math.abs(verification.amountRands - expectedAmount) > 1) {
-    console.error(
-      `Amount mismatch for booking ${bookingId}: expected ${expectedAmount}, got ${verification.amountRands}`,
-    );
-    return {
-      ok: false,
-      message: "The amount paid does not match this booking. Please contact the shop.",
-    };
-  }
-
   const paidInFull = expectedAmount >= Number(booking.service_price ?? 0);
   const newPaymentStatus = paidInFull ? "paid_full" : "deposit_paid";
 
-  // 5. Mark the booking confirmed + paid.
+  // Mark the booking confirmed + paid.
   const { error: updateError } = await admin
     .from("bookings")
     .update({
